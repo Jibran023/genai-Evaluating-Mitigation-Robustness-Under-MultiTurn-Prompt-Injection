@@ -10,7 +10,7 @@ client = Groq(api_key=API_KEY)
 
 
 # Load your 40 conversations
-with open("full_dataset_40_conversations.json") as f:
+with open("datasets/full_dataset_40_conversations.json") as f:
     dataset = json.load(f)
 
 # These will store our final counts
@@ -107,7 +107,7 @@ print(f"Over-Refusal Rate     : {orr}%")
 print("=============================\n")
 
 # Save results to a file
-with open("results_baseline.json", "w") as f:
+with open("results/results_baseline2.json", "w") as f:
     json.dump(results, f, indent=2)
 
 print("Results saved to results_baseline.json")
