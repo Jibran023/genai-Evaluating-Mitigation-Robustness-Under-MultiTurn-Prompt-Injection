@@ -1,0 +1,5 @@
+openai          # universal SDK — works with Groq, Gemini, NVIDIA NIM
+python-dotenv
+matplotlib
+pandas
+numpy
