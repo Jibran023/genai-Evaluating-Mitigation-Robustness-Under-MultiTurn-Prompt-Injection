@@ -9,6 +9,23 @@ MITIGATION options:
     "m1"       → prompt hardening   (safety system prompt)
     "m2"       → input/output gate  (keyword filter before + after LLM call)
     "m3"       → state monitor      (tracks escalation turns across conversation)
+
+NVIDIA per-model API keys
+--------------------------
+Different NVIDIA NIM models may require separate API keys (each key is tied to
+a specific model's credit pool on build.nvidia.com).
+
+In your .env file you can set a model-specific key using the naming pattern:
+    NVIDIA_API_KEY_<MODEL_SLUG>
+where <MODEL_SLUG> is the model name uppercased with all non-alphanumeric chars
+replaced by underscores.  Examples:
+    NVIDIA_API_KEY_META_LLAMA_3_1_8B_INSTRUCT   → for meta/llama-3.1-8b-instruct
+    NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT   → for meta/llama-3.3-70b-instruct
+    NVIDIA_API_KEY_GOOGLE_GEMMA_2_9B_IT          → for google/gemma-2-9b-it
+    NVIDIA_API_KEY_MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1  → for mistralai/mixtral-8x7b-instruct-v0.1
+
+If no model-specific key is found, NVIDIA_API_KEY is used as the fallback.
+All other providers (groq, gemini) are unaffected and use their single key.
 """
 
 import os
@@ -93,6 +110,38 @@ MODEL      = os.environ.get("EVAL_MODEL") or _DEFAULT_MODELS[MODEL_PROVIDER]
 MODEL_SLUG = MODEL.replace("/", "-")   # filesystem-safe directory name
 TEMPERATURE = 0.0   # deterministic — do not change for evaluation runs
 MAX_TOKENS  = 512   # increased: Gemini/NVIDIA sometimes need more for refusal text
+
+
+# ── API key resolver ──────────────────────────────────────────────────────────
+def get_api_key() -> str | None:
+    """
+    Return the API key for the current provider + model combination.
+
+    For NVIDIA, tries a model-specific env var first:
+        NVIDIA_API_KEY_<MODEL_SLUG_UPPER>
+    e.g.  NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT
+    before falling back to the generic NVIDIA_API_KEY.
+
+    For all other providers the generic key is returned directly.
+    """
+    provider_cfg = PROVIDERS[MODEL_PROVIDER]
+    generic_env  = provider_cfg["api_key_env"]          # e.g. "NVIDIA_API_KEY"
+
+    if MODEL_PROVIDER == "nvidia":
+        # Build a model-specific env-var name:
+        #   meta/llama-3.3-70b-instruct  →  NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT
+        import re
+        safe_model = re.sub(r"[^A-Z0-9]", "_", MODEL.upper())
+        model_env  = f"{generic_env}_{safe_model}"      # e.g. NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT
+        key = os.environ.get(model_env)
+        if key:
+            print(f"[API KEY] Using model-specific key from: {model_env}")
+            return key
+        # Fallback to the generic key
+        print(f"[API KEY] No model-specific key ({model_env}) found; "
+              f"falling back to {generic_env}")
+
+    return os.environ.get(generic_env)
 
 
 # ── Paths ─────────────────────────────────────────────────────────────────────

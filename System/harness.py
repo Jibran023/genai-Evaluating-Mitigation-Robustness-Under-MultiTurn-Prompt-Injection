@@ -38,12 +38,26 @@ from io_utils    import (
 load_dotenv()
 
 _provider = config.PROVIDERS[config.MODEL_PROVIDER]
-_api_key  = os.getenv(_provider["api_key_env"])
+_api_key  = config.get_api_key()   # resolves per-model NVIDIA key, then falls back to generic
 if not _api_key:
+    import re
+    _generic_env = _provider["api_key_env"]
+    if config.MODEL_PROVIDER == "nvidia":
+        _safe_model  = re.sub(r"[^A-Z0-9]", "_", config.MODEL.upper())
+        _model_env   = f"{_generic_env}_{_safe_model}"
+        raise EnvironmentError(
+            f"NVIDIA API key not set for model '{config.MODEL}'.\n"
+            f"  Add one of the following to your .env file:\n"
+            f"    {_model_env}=nvapi-...   (model-specific key)\n"
+            f"    {_generic_env}=nvapi-...          (generic fallback key)"
+        )
     raise EnvironmentError(
-        f"API key not set. Add {_provider['api_key_env']} to your .env file."
+        f"API key not set. Add {_generic_env} to your .env file."
     )
-client = OpenAI(base_url=_provider["base_url"], api_key=_api_key)
+# NVIDIA NIM models (especially less popular ones like gemma-2-9b-it) spin up
+# on demand and can take 30-60 s for the first request.  The default httpx
+# timeout is ~60 s which is occasionally too short — 120 s is safer.
+client = OpenAI(base_url=_provider["base_url"], api_key=_api_key, timeout=120.0)
 
 os.makedirs(config.OUT_DIR,   exist_ok=True)
 os.makedirs(config.PLOTS_DIR, exist_ok=True)
