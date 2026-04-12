@@ -111,6 +111,15 @@ MODEL_SLUG = MODEL.replace("/", "-")   # filesystem-safe directory name
 TEMPERATURE = 0.0   # deterministic — do not change for evaluation runs
 MAX_TOKENS  = 512   # increased: Gemini/NVIDIA sometimes need more for refusal text
 
+# ── Models that don't support the "system" role ───────────────────────────────
+# Some models (Gemma, Phi-3, etc.) reject {"role": "system"} with a 400 error.
+# List model name substrings here; harness.py will inject M1's system prompt
+# as a user-turn prefix instead of a system message for these models.
+MODELS_WITHOUT_SYSTEM_ROLE: set[str] = {
+    "gemma",   # Google Gemma family (gemma-2-9b-it, gemma-7b-it, …)
+    "phi-3",   # Microsoft Phi-3 series
+}
+
 
 # ── API key resolver ──────────────────────────────────────────────────────────
 def get_api_key() -> str | None:
