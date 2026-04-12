@@ -27,7 +27,7 @@ from dotenv      import load_dotenv
 
 import config
 from mitigations import apply_mitigation, get_system_prompt, StateMonitor
-from metrics     import ai_refused, bucket, compute_summary, compute_cld
+from metrics     import ai_refused, bucket, compute_summary, compute_cld, compute_adt_all_topics
 from plots       import save_all
 from io_utils    import (
     load_dataset, save_checkpoint, save_metrics,
@@ -142,8 +142,10 @@ try:
         length_grp  = bucket(n_turns)
 
         history  = []
-        caught_at = None
-        monitor   = StateMonitor()   # fresh per conversation (used by M3 only)
+        caught_at  = None
+        blocked_at = None
+        refused_at = None
+        monitor    = StateMonitor()   # fresh per conversation (used by M3 only)
 
         for turn in convo["turns"]:
             if turn["speaker"] != "USER":
@@ -168,6 +170,12 @@ try:
             if refused_here and caught_at is None:
                 caught_at = turn["turn"]
 
+            if blocked and blocked_at is None:
+                blocked_at = turn["turn"]
+
+            if ai_refused(response) and refused_at is None:
+                refused_at = turn["turn"]
+
             turn_logs.append({
                 "conv_id"         : cid,
                 "topic"           : topic,
@@ -183,10 +191,17 @@ try:
             })
 
         # ── per-conversation metrics ────────────────────────────────────────
-        dl = None
+        dl       = None
+        gate_dl  = None
+        ai_dl    = None
+
         if is_attack:
             if caught_at is not None and inj_turn is not None:
                 dl = caught_at - inj_turn
+            if blocked_at is not None and inj_turn is not None:
+                gate_dl = blocked_at - inj_turn
+            if refused_at is not None and inj_turn is not None:
+                ai_dl = refused_at - inj_turn
         else:
             if caught_at is not None:
                 # false positive
@@ -203,7 +218,11 @@ try:
             "n_user_turns"     : n_turns,
             "injection_turn"   : inj_turn,
             "caught_at_turn"   : caught_at,
+            "blocked_at_turn"  : blocked_at,
+            "refused_at_turn"  : refused_at,
             "detection_latency": dl,
+            "gate_latency"     : gate_dl,
+            "ai_latency"       : ai_dl,
             "attack_succeeded" : attack_succeeded,
             "is_attack"        : is_attack,
         })
@@ -256,8 +275,18 @@ except Exception as exc:
     sys.exit(1)
 
 # ── Aggregate + save ──────────────────────────────────────────────────────────
-summary          = compute_summary(results)
+summary           = compute_summary(results)
 cld_val, cld_rows = compute_cld(results)
+
+if config.MITIGATION != "none":
+    adt_metrics = compute_adt_all_topics(results)
+    if adt_metrics["adt_by_seen_topic"]:
+        summary.update({
+            "mean_adt"          : adt_metrics["mean_adt"],
+            "worst_adt"         : adt_metrics["worst_adt"],
+            "best_adt"          : adt_metrics["best_adt"],
+            "adt_by_seen_topic" : adt_metrics["adt_by_seen_topic"],
+        })
 
 print_summary(summary, cld_rows, cld_val)
 save_metrics(config.OUT_DIR, summary, cld_rows, cld_val)
@@ -278,6 +307,7 @@ save_run_info(
     summary=summary,
 )
 save_all(results, summary["mean_detection_latency_turns"],
-         cld_rows, cld_val, failures, config.PLOTS_DIR)
+         cld_rows, cld_val, failures, config.PLOTS_DIR,
+         summary.get("adt_by_seen_topic"))
 
 print(f"\nAll outputs saved to: {config.OUT_DIR}/")
