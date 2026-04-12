@@ -11,9 +11,11 @@ plot_asr_by_topic(results, plots_dir)
 plot_detection_latency(results, mean_dl, plots_dir)
 plot_context_length_drift(cld_rows, cld_val, plots_dir)
 plot_failure_breakdown(failures, plots_dir)
+plot_adt_by_seen_topic(adt_by_seen_topic, plots_dir)
+plot_adt_transfer_matrix(adt_by_seen_topic, plots_dir)
 plot_mitigation_comparison(comparison_data, plots_dir)
 plot_adt_heatmap(adt_data, plots_dir)
-save_all(results, mean_dl, cld_rows, cld_val, failures, plots_dir)
+save_all(results, mean_dl, cld_rows, cld_val, failures, plots_dir, adt_by_seen_topic=None)
 """
 
 import os
@@ -165,7 +167,131 @@ def plot_failure_breakdown(failures: list[dict], plots_dir: str):
     plt.close()
 
 
-# ── 5. Mitigation comparison (grouped bar) ────────────────────────────────────
+# ── 5. ADT by seen topic ───────────────────────────────────────────────────────
+
+def plot_adt_by_seen_topic(adt_by_seen_topic: dict, plots_dir: str):
+    _ensure(plots_dir)
+    if not adt_by_seen_topic:
+        return
+
+    rows = [
+        {
+            "seen_topic": seen_topic,
+            "adt": stats["adt"],
+            "asr_seen": stats["asr_seen"],
+            "asr_unseen": stats["asr_unseen"],
+        }
+        for seen_topic, stats in adt_by_seen_topic.items()
+    ]
+    df = pd.DataFrame(rows).sort_values("adt", ascending=True)
+
+    colors = [
+        GREEN if v < 5 else (AMBER if v <= 15 else RED)
+        for v in df["adt"]
+    ]
+
+    fig, ax = plt.subplots(figsize=(10, max(4, len(df) * 0.6)))
+    bars = ax.barh(df["seen_topic"], df["adt"], color=colors)
+    
+    # Guidelines for safety tiers
+    ax.axvline(5, color=GREEN, linestyle="--", linewidth=1, alpha=0.6)
+    ax.axvline(15, color=AMBER, linestyle="--", linewidth=1, alpha=0.6)
+    ax.axvline(0, color="black", linewidth=1)  # Zero line
+
+    ax.set_xlabel("ADT (%)")
+    ax.set_title("Attack-Defence Transferability by Seen Topic\n(lower is better)")
+    
+    # Auto-scale x-axis to accommodate negative bars and text labels
+    xmin = min(df["adt"].min() - 15, -10)
+    xmax = max(df["adt"].max() + 25, 40)
+    ax.set_xlim(xmin, xmax)
+
+    for bar, row in zip(bars, df.to_dict("records")):
+        val   = row["adt"]
+        label = f"{val}%  (seen={row['asr_seen']}%, unseen={row['asr_unseen']}%)"
+        
+        # Place text at the end of the bar
+        if val >= 0:
+            tx = val + 1.0
+            ha = "left"
+        else:
+            tx = val - 1.0
+            ha = "right"
+            
+        ax.text(tx, bar.get_y() + bar.get_height() / 2,
+                label, va="center", ha=ha, fontsize=8)
+
+    # Format y-axis labels for readability
+    ax.set_yticklabels([t.replace("_", " ").title() for t in df["seen_topic"]])
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "adt_by_seen_topic.png"), dpi=150)
+    plt.close()
+
+
+# ── 6. ADT transfer matrix (single run) ───────────────────────────────────────
+
+def plot_adt_transfer_matrix(adt_by_seen_topic: dict, plots_dir: str):
+    _ensure(plots_dir)
+    if not adt_by_seen_topic:
+        return
+
+    seen_topics = sorted(adt_by_seen_topic.keys())
+    unseen_topics = sorted({
+        topic
+        for stats in adt_by_seen_topic.values()
+        for topic in stats.get("adt_by_topic", {})
+    })
+    if not unseen_topics:
+        return
+
+    matrix = np.full((len(seen_topics), len(unseen_topics)), np.nan, dtype=float)
+    for i, seen_topic in enumerate(seen_topics):
+        per_topic = adt_by_seen_topic[seen_topic].get("adt_by_topic", {})
+        for j, unseen_topic in enumerate(unseen_topics):
+            if unseen_topic == seen_topic:
+                continue
+            stats = per_topic.get(unseen_topic)
+            if stats is not None:
+                matrix[i, j] = stats["adt"]
+
+    finite_vals = matrix[np.isfinite(matrix)]
+    if finite_vals.size == 0:
+        return
+
+    vmax = max(15.0, float(finite_vals.max()))
+    fig, ax = plt.subplots(
+        figsize=(max(7, len(unseen_topics) * 1.1), max(4, len(seen_topics) * 0.75))
+    )
+    cmap = plt.get_cmap("RdYlGn_r").copy()
+    cmap.set_bad(color="#E5E7EB")
+    im = ax.imshow(matrix, cmap=cmap, vmin=0, vmax=vmax, aspect="auto")
+    plt.colorbar(im, ax=ax, label="ADT (%)")
+
+    ax.set_xticks(range(len(unseen_topics)))
+    ax.set_xticklabels([t.replace("_", " ").title() for t in unseen_topics],
+                       rotation=35, ha="right", fontsize=8)
+    ax.set_yticks(range(len(seen_topics)))
+    ax.set_yticklabels([t.replace("_", " ").title() for t in seen_topics], fontsize=8)
+    ax.set_xlabel("Unseen Topic")
+    ax.set_ylabel("Seen Topic")
+    ax.set_title("ADT Transfer Matrix\n(cell = ADT when transferring from row topic to column topic)")
+
+    for i in range(len(seen_topics)):
+        for j in range(len(unseen_topics)):
+            if np.isfinite(matrix[i, j]):
+                ax.text(
+                    j, i, f"{matrix[i, j]:.1f}",
+                    ha="center", va="center", fontsize=7,
+                    color="white" if matrix[i, j] > (vmax * 0.55) else "black",
+                )
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "adt_transfer_matrix.png"), dpi=150)
+    plt.close()
+
+
+# ── 7. Mitigation comparison (grouped bar) ────────────────────────────────────
 # comparison_data format:
 #   [
 #     {"mitigation": "none", "length_group": "short", "asr_pct": 20.0},
@@ -212,10 +338,10 @@ def plot_mitigation_comparison(comparison_data: list[dict], plots_dir: str):
     plt.close()
 
 
-# ── 6. ADT heatmap ────────────────────────────────────────────────────────────
+# ── 6. ADT heatmap (cross-run comparison) ─────────────────────────────────────
 # adt_data format:
 #   {
-#     "m1": {"cybersecurity": 15.0, "financial_manipulation": 30.0, ...},
+#     "m1": {"seen_topic_1": 15.0, "seen_topic_2": 30.0, ...},
 #     "m2": {...},
 #     "m3": {...},
 #   }
@@ -233,21 +359,24 @@ def plot_adt_heatmap(adt_data: dict, plots_dir: str):
     )
 
     fig, ax = plt.subplots(figsize=(max(6, len(topics) * 1.2), max(3, len(mitigations) * 0.8)))
-    im = ax.imshow(matrix, cmap="RdYlGn_r", vmin=0, vmax=100, aspect="auto")
-    plt.colorbar(im, ax=ax, label="ASR on unseen attacks (%)")
+    vmax = max(15.0, float(matrix.max())) if matrix.size else 15.0
+    im = ax.imshow(matrix, cmap="RdYlGn_r", vmin=0, vmax=vmax, aspect="auto")
+    plt.colorbar(im, ax=ax, label="ADT (%)")
 
     ax.set_xticks(range(len(topics)))
     ax.set_xticklabels([t.replace("_", " ").title() for t in topics],
                        rotation=35, ha="right", fontsize=8)
     ax.set_yticks(range(len(mitigations)))
     ax.set_yticklabels([m.upper() for m in mitigations])
-    ax.set_title("Attack–Defence Transferability\n(cell = ASR on that unseen topic)", fontsize=10)
+    ax.set_title("Attack-Defence Transferability by Mitigation\n(cell = ADT for that seen topic)", fontsize=10)
 
     for i in range(len(mitigations)):
         for j in range(len(topics)):
-            ax.text(j, i, f"{matrix[i, j]:.0f}%",
-                    ha="center", va="center", fontsize=8,
-                    color="white" if matrix[i, j] > 60 else "black")
+            ax.text(
+                j, i, f"{matrix[i, j]:.1f}",
+                ha="center", va="center", fontsize=8,
+                color="white" if matrix[i, j] > (vmax * 0.55) else "black"
+            )
 
     plt.tight_layout()
     plt.savefig(os.path.join(plots_dir, "adt_heatmap.png"), dpi=150)
@@ -263,13 +392,20 @@ def save_all(
     cld_val:   float | str,
     failures:  list[dict],
     plots_dir: str,
+    adt_by_seen_topic: dict | None = None,
 ):
     plot_asr_by_topic(results, plots_dir)
     plot_detection_latency(results, mean_dl, plots_dir)
     plot_context_length_drift(cld_rows, cld_val, plots_dir)
     plot_failure_breakdown(failures, plots_dir)
+    plot_adt_by_seen_topic(adt_by_seen_topic or {}, plots_dir)
+    plot_adt_transfer_matrix(adt_by_seen_topic or {}, plots_dir)
+
     print(f"Plots saved to {plots_dir}/")
     print("  asr_by_topic.png")
     print("  detection_latency_dist.png")
     print("  context_length_drift.png")
     print("  failure_breakdown.png")
+    if adt_by_seen_topic:
+        print("  adt_by_seen_topic.png")
+        print("  adt_transfer_matrix.png")

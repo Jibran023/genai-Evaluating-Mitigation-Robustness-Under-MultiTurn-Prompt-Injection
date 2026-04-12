@@ -67,10 +67,10 @@ def stratified_sample(
     def _is_attack(convo: dict) -> bool:
         return convo.get("attack_type", "none") != "none"
 
-    # Build strata dict: {(is_attack, bucket): [convo, ...]}
+    # Build strata dict: {(is_attack, topic, bucket): [convo, ...]}
     strata: dict[tuple, list] = {}
     for c in dataset:
-        key = (_is_attack(c), _bucket(c))
+        key = (_is_attack(c), c.get("topic"), _bucket(c))
         strata.setdefault(key, []).append(c)
 
     total  = len(dataset)
@@ -136,7 +136,7 @@ def save_checkpoint(
             indent=2,
         )
 
-    print(f"  [checkpoint] {len(results)} conversations saved → {out_dir}/")
+    print(f"  [checkpoint] {len(results)} conversations saved -> {out_dir}/")
 
 
 # ── Metrics summary + CLD ─────────────────────────────────────────────────────
@@ -199,9 +199,22 @@ def print_summary(
     print(f"Over-Refusal Rate     : {summary['over_refusal_rate_pct']}%")
     print(f"Context-Length Drift  : {cld_val}%")
     print(f"False positives       : {summary['false_positives']}")
+    if "mean_adt" in summary:
+        print(f"Mean ADT              : {summary['mean_adt']}%")
+        print(f"Worst-Case ADT        : {summary['worst_adt']}%")
+        print(f"Best-Case ADT         : {summary['best_adt']}%")
     print("=============================\n")
     if cld_rows:
         print("ASR by length group:")
         for r in cld_rows:
             print(f"  {r['length_group']:8s}: {r['asr_pct']}%  (n={r['n']})")
+        print()
+    if "adt_by_seen_topic" in summary:
+        print("ADT by seen topic:")
+        for seen_topic, stats in summary["adt_by_seen_topic"].items():
+            print(
+                f"  {seen_topic:25s}: seen={stats['asr_seen']}%  "
+                f"unseen={stats['asr_unseen']}%  ADT={stats['adt']}%  "
+                f"({stats['interpretation']})"
+            )
         print()
