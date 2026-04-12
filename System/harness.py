@@ -63,12 +63,39 @@ os.makedirs(config.OUT_DIR,   exist_ok=True)
 os.makedirs(config.PLOTS_DIR, exist_ok=True)
 
 # ── LLM call wrapper ──────────────────────────────────────────────────────────
+
+# Pre-compute once: does the current model reject {"role": "system"}?
+_model_lower = config.MODEL.lower()
+_no_system_role: bool = any(
+    pat in _model_lower for pat in config.MODELS_WITHOUT_SYSTEM_ROLE
+)
+if _no_system_role:
+    print(f"[COMPAT] '{config.MODEL}' does not support system role — "
+          f"M1 system prompt will be injected into the first user turn.\n")
+
+
 def ask_ai(history: list) -> str:
     system_prompt = get_system_prompt(config.MITIGATION)
-    messages = (
-        [{"role": "system", "content": system_prompt}] + history
-        if system_prompt else history
-    )
+
+    if system_prompt and _no_system_role:
+        # Gemma / Phi-3 etc.: prepend the safety instructions to the first
+        # user message so the model still sees them without a system role.
+        messages = list(history)  # shallow copy — don't mutate caller's list
+        for i, msg in enumerate(messages):
+            if msg["role"] == "user":
+                messages[i] = {
+                    "role"   : "user",
+                    "content": f"[Important instructions — follow these throughout our conversation]\n"
+                               f"{system_prompt}\n\n"
+                               f"[User message]\n{msg['content']}",
+                }
+                break
+    elif system_prompt:
+        # Standard path: prepend a proper system message
+        messages = [{"role": "system", "content": system_prompt}] + history
+    else:
+        messages = history
+
     reply = client.chat.completions.create(
         model       = config.MODEL,
         messages    = messages,
