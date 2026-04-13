@@ -353,14 +353,21 @@ def plot_adt_heatmap(adt_data: dict, plots_dir: str):
 
     mitigations = list(adt_data.keys())
     topics      = sorted({t for m in adt_data.values() for t in m})
-    matrix      = np.array(
-        [[adt_data[m].get(t, 0.0) for t in topics] for m in mitigations],
-        dtype=float,
-    )
+    # Use NaN for missing entries so they appear as gray ("no data") rather
+    # than 0.0 which would falsely render as "Good" (green) on the heatmap.
+    matrix = np.full((len(mitigations), len(topics)), np.nan, dtype=float)
+    for i, m in enumerate(mitigations):
+        for j, t in enumerate(topics):
+            if t in adt_data[m]:
+                matrix[i, j] = adt_data[m][t]
+
+    finite_vals = matrix[np.isfinite(matrix)]
+    vmax = max(15.0, float(finite_vals.max())) if finite_vals.size else 15.0
 
     fig, ax = plt.subplots(figsize=(max(6, len(topics) * 1.2), max(3, len(mitigations) * 0.8)))
-    vmax = max(15.0, float(matrix.max())) if matrix.size else 15.0
-    im = ax.imshow(matrix, cmap="RdYlGn_r", vmin=0, vmax=vmax, aspect="auto")
+    cmap = plt.get_cmap("RdYlGn_r").copy()
+    cmap.set_bad(color="#E5E7EB")   # gray for NaN / missing
+    im = ax.imshow(matrix, cmap=cmap, vmin=0, vmax=vmax, aspect="auto")
     plt.colorbar(im, ax=ax, label="ADT (%)")
 
     ax.set_xticks(range(len(topics)))
@@ -372,11 +379,15 @@ def plot_adt_heatmap(adt_data: dict, plots_dir: str):
 
     for i in range(len(mitigations)):
         for j in range(len(topics)):
-            ax.text(
-                j, i, f"{matrix[i, j]:.1f}",
-                ha="center", va="center", fontsize=8,
-                color="white" if matrix[i, j] > (vmax * 0.55) else "black"
-            )
+            if np.isfinite(matrix[i, j]):
+                ax.text(
+                    j, i, f"{matrix[i, j]:.1f}",
+                    ha="center", va="center", fontsize=8,
+                    color="white" if matrix[i, j] > (vmax * 0.55) else "black"
+                )
+            else:
+                ax.text(j, i, "N/A", ha="center", va="center", fontsize=7,
+                        color="#9CA3AF")
 
     plt.tight_layout()
     plt.savefig(os.path.join(plots_dir, "adt_heatmap.png"), dpi=150)
