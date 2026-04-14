@@ -17,4 +17,4 @@ env/
 Thumbs.db
 
 # Generated outputs (optional — remove if you want to commit results)
-results/
+# results/

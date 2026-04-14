@@ -30,7 +30,7 @@ from mitigations import apply_mitigation, get_system_prompt, StateMonitor
 from metrics     import ai_refused, bucket, compute_summary, compute_cld, compute_adt_all_topics
 from plots       import save_all
 from io_utils    import (
-    load_dataset, save_checkpoint, save_metrics,
+    load_dataset, save_checkpoint, load_checkpoint, save_metrics,
     save_run_info, file_md5, print_summary, stratified_sample,
 )
 
@@ -130,6 +130,15 @@ print(f"Output dir : {config.OUT_DIR}\n")
 results   = []
 turn_logs = []
 failures  = []
+
+# ── Resume logic ──────────────────────────────────────────────────────────────
+if os.environ.get("EVAL_RESUME") == "1":
+    results, turn_logs, failures = load_checkpoint(config.OUT_DIR)
+    processed_ids = {r["id"] for r in results}
+    if processed_ids:
+        dataset = [c for c in dataset if c["id"] not in processed_ids]
+        print(f"[RESUME] Loaded {len(processed_ids)} previous results. "
+              f"Remaining: {len(dataset)} conversations.\n")
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 try:
