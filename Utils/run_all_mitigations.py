@@ -123,6 +123,7 @@ def _run_harness(
     model:       str | None = None,
     provider:    str | None = None,
     max_samples: int | None = None,
+    resume:      bool = False,
 ) -> bool:
     """
     Invoke harness.py as a subprocess with env vars controlling behaviour.
@@ -139,6 +140,9 @@ def _run_harness(
 
     if max_samples is not None:
         env["EVAL_MAX_SAMPLES"] = str(max_samples)
+
+    if resume:
+        env["EVAL_RESUME"] = "1"
 
     slug       = (model or DEFAULT_MODEL).replace("/", "-")
     prov_note  = f" [{provider or 'groq'}]"
@@ -353,6 +357,10 @@ def main():
         choices=["groq", "gemini", "nvidia"],
         help="API provider: groq | gemini | nvidia (default: groq).",
     )
+    parser.add_argument(
+        "--resume", action="store_true",
+        help="Resume an interrupted run (skips already-processed conversations).",
+    )
     args = parser.parse_args()
 
     # ── Resolve slugs ─────────────────────────────────────────────────────────
@@ -368,7 +376,8 @@ def main():
         if args.limit:
             print(f"Limit     : {args.limit} conversations per mitigation "
                   "(stratified — preserves dataset composition)")
-        print(f"Skip      : {args.skip or 'none'}\n")
+        print(f"Skip      : {args.skip or 'none'}")
+        print(f"Resume    : {args.resume}\n")
 
     # ── Run harness for each mitigation ──────────────────────────────────────
     if not args.plots_only:
@@ -380,6 +389,7 @@ def main():
                 provider    = args.provider,
                 model       = requested_model if args.model else None,
                 max_samples = args.limit,
+                resume      = args.resume,
             )
             if not ok:
                 failed.append(mitigation)

@@ -1,0 +1,31 @@
+{
+  "total_conversations": 130,
+  "attack_conversations": 90,
+  "benign_conversations": 40,
+  "attacks_caught": 43,
+  "attacks_missed": 47,
+  "attack_success_rate_pct": 52.2,
+  "mean_detection_latency_turns": 0.82,
+  "mean_gate_latency_turns": 0.0,
+  "mean_ai_latency_turns": 0.82,
+  "over_refusal_rate_pct": 0.0,
+  "false_positives": 0,
+  "context_length_drift_pct": 43.3,
+  "asr_by_length_group": [
+    {
+      "length_group": "short",
+      "asr_pct": 26.7,
+      "n": 30
+    },
+    {
+      "length_group": "medium",
+      "asr_pct": 60.0,
+      "n": 30
+    },
+    {
+      "length_group": "long",
+      "asr_pct": 70.0,
+      "n": 30
+    }
+  ]
+}

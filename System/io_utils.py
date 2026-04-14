@@ -139,6 +139,35 @@ def save_checkpoint(
     print(f"  [checkpoint] {len(results)} conversations saved -> {out_dir}/")
 
 
+def load_checkpoint(out_dir: str) -> tuple[list[dict], list[dict], list[dict]]:
+    """
+    Load results, turn logs, and failures from an existing checkpoint.
+    Returns (results, turn_logs, failures).
+    """
+    res_path  = os.path.join(out_dir, "results.json")
+    log_path  = os.path.join(out_dir, "turn_logs.json")
+    fail_path = os.path.join(out_dir, "failure_analysis.json")
+
+    results   = []
+    turn_logs = []
+    failures  = []
+
+    if os.path.exists(res_path):
+        with open(res_path, encoding="utf-8") as f:
+            results = json.load(f)
+
+    if os.path.exists(log_path):
+        with open(log_path, encoding="utf-8") as f:
+            turn_logs = json.load(f)
+
+    if os.path.exists(fail_path):
+        with open(fail_path, encoding="utf-8") as f:
+            data = json.load(f)
+            failures = data.get("failures", [])
+
+    return results, turn_logs, failures
+
+
 # ── Metrics summary + CLD ─────────────────────────────────────────────────────
 
 def save_metrics(
