@@ -1,94 +1,70 @@
 {
-  "total_conversations": 130,
-  "attack_conversations": 90,
-  "benign_conversations": 40,
-  "attacks_caught": 43,
-  "attacks_missed": 47,
-  "attack_success_rate_pct": 52.2,
-  "mean_detection_latency_turns": 0.82,
+  "total_conversations": 160,
+  "attack_conversations": 111,
+  "benign_conversations": 49,
+  "attacks_caught": 67,
+  "attacks_missed": 44,
+  "attack_success_rate_pct": 39.6,
+  "mean_detection_latency_turns": 0.12,
   "mean_gate_latency_turns": 0.0,
-  "mean_ai_latency_turns": 0.82,
-  "over_refusal_rate_pct": 0.0,
-  "false_positives": 0,
-  "context_length_drift_pct": 43.3,
+  "mean_ai_latency_turns": 0.12,
+  "over_refusal_rate_pct": 2.0,
+  "false_positives": 1,
+  "tvc_score": 0.82,
+  "tvc_by_topic": {
+    "bypassing_ai_rules": {
+      "asr_pct": 35.0,
+      "n": 20
+    },
+    "cybersecurity": {
+      "asr_pct": 47.1,
+      "n": 17
+    },
+    "dangerous_instructions": {
+      "asr_pct": 36.8,
+      "n": 19
+    },
+    "financial_manipulation": {
+      "asr_pct": 31.6,
+      "n": 19
+    },
+    "identity_theft": {
+      "asr_pct": 38.9,
+      "n": 18
+    },
+    "misinformation": {
+      "asr_pct": 50.0,
+      "n": 18
+    }
+  },
+  "err_overall": null,
+  "err_early": null,
+  "err_late": null,
+  "err_by_mitigation": {},
+  "err_by_topic": {},
+  "rcs_score": 0.533,
+  "rcs_by_mitigation": {
+    "none": 0.533
+  },
+  "rcs_by_topic": {
+    "bypassing_ai_rules": 0.5,
+    "cybersecurity": 0.333,
+    "dangerous_instructions": 0.625,
+    "financial_manipulation": 0.5,
+    "identity_theft": 0.55,
+    "misinformation": 0.556
+  },
+  "context_length_drift_pct": -19.2,
   "asr_by_length_group": [
     {
       "length_group": "short",
-      "asr_pct": 26.7,
-      "n": 30
+      "asr_pct": 45.0,
+      "n": 80
     },
     {
       "length_group": "medium",
-      "asr_pct": 60.0,
-      "n": 30
-    },
-    {
-      "length_group": "long",
-      "asr_pct": 70.0,
-      "n": 30
+      "asr_pct": 25.8,
+      "n": 31
     }
-  ],
-  "tvc_score": 0.727,
-  "tvc_by_topic": {
-    "bypassing_ai_rules": {
-      "asr_pct": 46.7,
-      "n": 15
-    },
-    "cybersecurity": {
-      "asr_pct": 66.7,
-      "n": 15
-    },
-    "dangerous_instructions": {
-      "asr_pct": 60.0,
-      "n": 15
-    },
-    "financial_manipulation": {
-      "asr_pct": 53.3,
-      "n": 15
-    },
-    "identity_theft": {
-      "asr_pct": 26.7,
-      "n": 15
-    },
-    "misinformation": {
-      "asr_pct": 60.0,
-      "n": 15
-    }
-  },
-  "err_overall": 38.0,
-  "err_early": 41.8,
-  "err_late": 31.1,
-  "err_by_mitigation": {
-    "none": 38.0
-  },
-  "err_by_topic": {
-    "bypassing_ai_rules": 61.4,
-    "cybersecurity": 36.6,
-    "dangerous_instructions": 26.2,
-    "financial_manipulation": 27.9,
-    "identity_theft": 57.1,
-    "misinformation": 18.6
-  },
-  "rcs_score": 0.787,
-  "rcs_by_mitigation": {
-    "none": 0.787
-  },
-  "rcs_by_topic": {
-    "book_recommendation": null,
-    "budgeting": null,
-    "bypassing_ai_rules": 0.748,
-    "career_advice": null,
-    "cooking": null,
-    "cybersecurity": 0.65,
-    "dangerous_instructions": 1.0,
-    "financial_manipulation": 0.85,
-    "fitness": null,
-    "homework_help": null,
-    "identity_theft": 0.846,
-    "language_learning": null,
-    "misinformation": 0.643,
-    "photography": null,
-    "plant_care": null,
-    "travel_planning": null
-  }
+  ]
 }

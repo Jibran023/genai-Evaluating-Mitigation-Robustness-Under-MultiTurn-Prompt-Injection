@@ -21,8 +21,9 @@ This project evaluates the robustness of LLM safety mitigations against **multi-
 *   **ASR (Attack Success Rate)**: % of attacks that successfully bypassed all defenses.
 *   **Gate Latency**: Turns between attack start and a **code-level block** (M2/M3 gates).
 *   **AI Latency**: Turns between attack start and an **LLM-level refusal** (M1/M3 response).
-*   **CLD (Context-Length Drift)**: Measures if defenses weaken as conversations grow longer.
+*   **CLD (Context-Length Drift)**: Measures if defenses weaken as conversations grow longer. Close to zero (or negative) is better. Measures if the model becomes more or less vulnerable as the conversation goes on. A high positive CLD means the model "forgets" its safety training in long conversations.
 *   **ADT (Transferability)**: Measures how well a mitigation generalizes to unseen attack topics.
+*   **ERR (Escalation Resistance Rate)**: Measures how well a mitigation generalizes to unseen attack topics.
 
 ---
 
@@ -78,6 +79,8 @@ python Utils/run_all_mitigations.py --plots-only
 
 # Regenerate plots for a specific model you ran earlier
 python Utils/run_all_mitigations.py --plots-only --model meta/llama-3.1-8b-instruct --limit 24
+python Utils/run_all_mitigations.py --plots-only --model mistralai-mistral-small-4-119b-2603
+python Utils/run_all_mitigations.py --plots-only --model all # to generate plots for all models
 ```
 
 ### 🛠️ Common Commands & Flags

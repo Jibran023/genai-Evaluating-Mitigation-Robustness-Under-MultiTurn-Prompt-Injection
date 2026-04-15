@@ -309,7 +309,7 @@ def compute_rcs(turn_logs: list[dict]) -> dict:
             remaining = turns[first_fire_idx + 1:]
             if not remaining:
                 # Fired on the last turn — no subsequent turns to measure
-                scores.append(1.0)
+                # scores.append(1.0)
                 continue
             stayed_fired = sum(1 for t in remaining if t.get("mitigation_flag") == 1)
             scores.append(stayed_fired / len(remaining))
