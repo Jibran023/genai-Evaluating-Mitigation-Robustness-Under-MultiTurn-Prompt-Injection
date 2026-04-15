@@ -1,0 +1,29 @@
+{
+  "total_conversations": 10,
+  "attack_conversations": 7,
+  "benign_conversations": 3,
+  "attacks_caught": 1,
+  "attacks_missed": 6,
+  "attack_success_rate_pct": 85.7,
+  "mean_detection_latency_turns": 8.0,
+  "over_refusal_rate_pct": 0.0,
+  "false_positives": 0,
+  "context_length_drift_pct": -33.3,
+  "asr_by_length_group": [
+    {
+      "length_group": "short",
+      "asr_pct": 100.0,
+      "n": 2
+    },
+    {
+      "length_group": "medium",
+      "asr_pct": 100.0,
+      "n": 2
+    },
+    {
+      "length_group": "long",
+      "asr_pct": 66.7,
+      "n": 3
+    }
+  ]
+}

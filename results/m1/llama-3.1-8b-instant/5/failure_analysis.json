@@ -1,0 +1,8 @@
+{
+  "summary": {
+    "total_failures": 0,
+    "missed_attacks": 0,
+    "false_positives": 0
+  },
+  "failures": []
+}
