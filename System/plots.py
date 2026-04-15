@@ -11,11 +11,12 @@ plot_asr_by_topic(results, plots_dir)
 plot_detection_latency(results, mean_dl, plots_dir)
 plot_context_length_drift(cld_rows, cld_val, plots_dir)
 plot_failure_breakdown(failures, plots_dir)
-plot_adt_by_seen_topic(adt_by_seen_topic, plots_dir)
-plot_adt_transfer_matrix(adt_by_seen_topic, plots_dir)
+plot_tvc(tvc_metrics, plots_dir)
+plot_err(err_metrics, plots_dir)
+plot_rcs(rcs_metrics, plots_dir)
 plot_mitigation_comparison(comparison_data, plots_dir)
-plot_adt_heatmap(adt_data, plots_dir)
-save_all(results, mean_dl, cld_rows, cld_val, failures, plots_dir, adt_by_seen_topic=None)
+save_all(results, mean_dl, cld_rows, cld_val, failures, plots_dir,
+         tvc_metrics, err_metrics, rcs_metrics)
 """
 
 import os
@@ -167,131 +168,186 @@ def plot_failure_breakdown(failures: list[dict], plots_dir: str):
     plt.close()
 
 
-# ── 5. ADT by seen topic ───────────────────────────────────────────────────────
+# ── 5. Topic Vulnerability Consistency (TVC) ──────────────────────────────────
 
-def plot_adt_by_seen_topic(adt_by_seen_topic: dict, plots_dir: str):
+def plot_tvc(tvc_metrics: dict, plots_dir: str):
+    """
+    Horizontal bar chart of per-topic ASR with TVC score annotated.
+    Lower bar = lower ASR = better for that topic.
+    """
     _ensure(plots_dir)
-    if not adt_by_seen_topic:
+    tvc_by_topic = tvc_metrics.get("tvc_by_topic", {})
+    tvc_score    = tvc_metrics.get("tvc_score")
+
+    if not tvc_by_topic:
         return
 
-    rows = [
-        {
-            "seen_topic": seen_topic,
-            "adt": stats["adt"],
-            "asr_seen": stats["asr_seen"],
-            "asr_unseen": stats["asr_unseen"],
-        }
-        for seen_topic, stats in adt_by_seen_topic.items()
-    ]
-    df = pd.DataFrame(rows).sort_values("adt", ascending=True)
+    topics = sorted(tvc_by_topic.keys())
+    asrs   = [tvc_by_topic[t]["asr_pct"] for t in topics]
+    ns     = [tvc_by_topic[t]["n"]       for t in topics]
 
-    colors = [
-        GREEN if v < 5 else (AMBER if v <= 15 else RED)
-        for v in df["adt"]
-    ]
+    # Sort ascending so best topics appear at top of horizontal chart
+    paired = sorted(zip(topics, asrs, ns), key=lambda x: x[1])
+    topics, asrs, ns = zip(*paired) if paired else ([], [], [])
 
-    fig, ax = plt.subplots(figsize=(10, max(4, len(df) * 0.6)))
-    bars = ax.barh(df["seen_topic"], df["adt"], color=colors)
-    
-    # Guidelines for safety tiers
-    ax.axvline(5, color=GREEN, linestyle="--", linewidth=1, alpha=0.6)
-    ax.axvline(15, color=AMBER, linestyle="--", linewidth=1, alpha=0.6)
-    ax.axvline(0, color="black", linewidth=1)  # Zero line
-
-    ax.set_xlabel("ADT (%)")
-    ax.set_title("Attack-Defence Transferability by Seen Topic\n(lower is better)")
-    
-    # Auto-scale x-axis to accommodate negative bars and text labels
-    xmin = min(df["adt"].min() - 15, -10)
-    xmax = max(df["adt"].max() + 25, 40)
-    ax.set_xlim(xmin, xmax)
-
-    for bar, row in zip(bars, df.to_dict("records")):
-        val   = row["adt"]
-        label = f"{val}%  (seen={row['asr_seen']}%, unseen={row['asr_unseen']}%)"
-        
-        # Place text at the end of the bar
-        if val >= 0:
-            tx = val + 1.0
-            ha = "left"
-        else:
-            tx = val - 1.0
-            ha = "right"
-            
-        ax.text(tx, bar.get_y() + bar.get_height() / 2,
-                label, va="center", ha=ha, fontsize=8)
-
-    # Format y-axis labels for readability
-    ax.set_yticklabels([t.replace("_", " ").title() for t in df["seen_topic"]])
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "adt_by_seen_topic.png"), dpi=150)
-    plt.close()
-
-
-# ── 6. ADT transfer matrix (single run) ───────────────────────────────────────
-
-def plot_adt_transfer_matrix(adt_by_seen_topic: dict, plots_dir: str):
-    _ensure(plots_dir)
-    if not adt_by_seen_topic:
-        return
-
-    seen_topics = sorted(adt_by_seen_topic.keys())
-    unseen_topics = sorted({
-        topic
-        for stats in adt_by_seen_topic.values()
-        for topic in stats.get("adt_by_topic", {})
-    })
-    if not unseen_topics:
-        return
-
-    matrix = np.full((len(seen_topics), len(unseen_topics)), np.nan, dtype=float)
-    for i, seen_topic in enumerate(seen_topics):
-        per_topic = adt_by_seen_topic[seen_topic].get("adt_by_topic", {})
-        for j, unseen_topic in enumerate(unseen_topics):
-            if unseen_topic == seen_topic:
-                continue
-            stats = per_topic.get(unseen_topic)
-            if stats is not None:
-                matrix[i, j] = stats["adt"]
-
-    finite_vals = matrix[np.isfinite(matrix)]
-    if finite_vals.size == 0:
-        return
-
-    vmax = max(15.0, float(finite_vals.max()))
-    fig, ax = plt.subplots(
-        figsize=(max(7, len(unseen_topics) * 1.1), max(4, len(seen_topics) * 0.75))
+    fig, ax = plt.subplots(figsize=(9, max(4, len(topics) * 0.55)))
+    colors = [RED if v >= 50 else (AMBER if v >= 25 else GREEN) for v in asrs]
+    bars   = ax.barh(list(topics), list(asrs), color=colors)
+    ax.axvline(50, color=GRAY, linestyle="--", linewidth=1, alpha=0.7,
+               label="50% ASR threshold")
+    ax.set_xlabel("Attack Success Rate (%)")
+    tvc_label = f"{tvc_score:.3f}" if tvc_score is not None else "N/A"
+    ax.set_title(
+        f"Topic Vulnerability Consistency (TVC = {tvc_label})\n"
+        "Per-topic ASR — lower & more uniform = higher TVC",
+        fontsize=10,
     )
-    cmap = plt.get_cmap("RdYlGn_r").copy()
-    cmap.set_bad(color="#E5E7EB")
-    im = ax.imshow(matrix, cmap=cmap, vmin=0, vmax=vmax, aspect="auto")
-    plt.colorbar(im, ax=ax, label="ADT (%)")
-
-    ax.set_xticks(range(len(unseen_topics)))
-    ax.set_xticklabels([t.replace("_", " ").title() for t in unseen_topics],
-                       rotation=35, ha="right", fontsize=8)
-    ax.set_yticks(range(len(seen_topics)))
-    ax.set_yticklabels([t.replace("_", " ").title() for t in seen_topics], fontsize=8)
-    ax.set_xlabel("Unseen Topic")
-    ax.set_ylabel("Seen Topic")
-    ax.set_title("ADT Transfer Matrix\n(cell = ADT when transferring from row topic to column topic)")
-
-    for i in range(len(seen_topics)):
-        for j in range(len(unseen_topics)):
-            if np.isfinite(matrix[i, j]):
-                ax.text(
-                    j, i, f"{matrix[i, j]:.1f}",
-                    ha="center", va="center", fontsize=7,
-                    color="white" if matrix[i, j] > (vmax * 0.55) else "black",
-                )
-
+    ax.set_xlim(0, 115)
+    ax.legend(fontsize=8)
+    for bar, val, n in zip(bars, asrs, ns):
+        ax.text(val + 1, bar.get_y() + bar.get_height() / 2,
+                f"{val}%  (n={n})", va="center", fontsize=8)
+    ax.set_yticks(range(len(topics)))
+    ax.set_yticklabels([t.replace("_", " ").title() for t in topics])
     plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "adt_transfer_matrix.png"), dpi=150)
+    plt.savefig(os.path.join(plots_dir, "tvc_by_topic.png"), dpi=150)
     plt.close()
 
 
-# ── 7. Mitigation comparison (grouped bar) ────────────────────────────────────
+# ── 6. Escalation Resistance Rate (ERR) ──────────────────────────────────────
+
+def plot_err(err_metrics: dict, plots_dir: str):
+    """
+    Two panels:
+      Left  — ERR overall + by mitigation (grouped bar)
+      Right — Early vs Late ERR split (shows degradation deeper in conversation)
+    """
+    _ensure(plots_dir)
+    err_overall = err_metrics.get("err_overall")
+    err_by_mit  = err_metrics.get("err_by_mitigation", {})
+    err_early   = err_metrics.get("err_early")
+    err_late    = err_metrics.get("err_late")
+
+    if err_overall is None:
+        return
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 5))
+
+    # ── Left: ERR by mitigation ───────────────────────────────────────────────
+    mits  = sorted(err_by_mit.keys())
+    vals  = [err_by_mit[m] if err_by_mit[m] is not None else 0.0 for m in mits]
+    cols  = [MITIGATION_COLORS.get(m, BLUE) for m in mits]
+    bars1 = ax1.bar(mits, vals, color=cols, width=0.5)
+    ax1.axhline(err_overall, color=RED, linestyle="--", linewidth=1.5,
+                label=f"Overall ERR = {err_overall}%")
+    ax1.set_ylim(0, 110)
+    ax1.set_xlabel("Mitigation")
+    ax1.set_ylabel("ERR (%)")
+    ax1.set_title("Escalation Resistance Rate by Mitigation\n(% of ATTACK_ESCALATES turns blocked)",
+                  fontsize=10)
+    ax1.legend(fontsize=8)
+    for bar, val in zip(bars1, vals):
+        ax1.text(bar.get_x() + bar.get_width() / 2, val + 1, f"{val}%",
+                 ha="center", fontsize=9)
+
+    # ── Right: Early vs Late ERR ───────────────────────────────────────────────
+    early_val = err_early if err_early is not None else 0.0
+    late_val  = err_late  if err_late  is not None else 0.0
+    categories = ["Early Escalation", "Late Escalation"]
+    values     = [early_val, late_val]
+    bar_colors = [GREEN if early_val >= late_val else AMBER, RED if late_val < early_val else TEAL]
+    bars2 = ax2.bar(categories, values, color=bar_colors, width=0.45)
+    ax2.axhline(err_overall, color=GRAY, linestyle="--", linewidth=1,
+                alpha=0.8, label=f"Overall ERR = {err_overall}%")
+    ax2.set_ylim(0, 110)
+    ax2.set_ylabel("ERR (%)")
+    ax2.set_title(
+        "ERR: Early vs Late Escalation\n"
+        "(degradation = late ERR < early ERR)",
+        fontsize=10,
+    )
+    ax2.legend(fontsize=8)
+    for bar, val in zip(bars2, values):
+        ax2.text(bar.get_x() + bar.get_width() / 2, val + 1, f"{val}%",
+                 ha="center", fontsize=9)
+
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "err_by_mitigation.png"), dpi=150)
+    plt.close()
+
+
+def plot_err_by_topic(err_metrics: dict, plots_dir: str):
+    """Horizontal bar chart of ERR broken down by topic."""
+    _ensure(plots_dir)
+    err_by_topic = err_metrics.get("err_by_topic", {})
+    if not err_by_topic:
+        return
+
+    topics = sorted(err_by_topic.keys(), key=lambda t: err_by_topic[t] or 0)
+    vals   = [err_by_topic[t] if err_by_topic[t] is not None else 0.0 for t in topics]
+    cols   = [GREEN if v >= 70 else (AMBER if v >= 40 else RED) for v in vals]
+
+    fig, ax = plt.subplots(figsize=(9, max(4, len(topics) * 0.55)))
+    bars = ax.barh(list(topics), vals, color=cols)
+    ax.set_xlabel("ERR (%)")
+    ax.set_title("Escalation Resistance Rate by Topic\n(% of ATTACK_ESCALATES turns blocked)\n"
+                 "higher = better", fontsize=10)
+    ax.set_xlim(0, 115)
+    for bar, val in zip(bars, vals):
+        ax.text(val + 1, bar.get_y() + bar.get_height() / 2,
+                f"{val}%", va="center", fontsize=8)
+    ax.set_yticks(range(len(topics)))
+    ax.set_yticklabels([t.replace("_", " ").title() for t in topics])
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "err_by_topic.png"), dpi=150)
+    plt.close()
+
+
+# ── 7. Refusal Consistency Score (RCS) ───────────────────────────────────────
+
+def plot_rcs(rcs_metrics: dict, plots_dir: str):
+    """
+    Bar chart of RCS per mitigation.
+    RCS = 1.0 → mitigation never reset after firing (perfect consistency).
+    RCS = 0.0 → mitigation always reset (completely inconsistent blocking).
+    """
+    _ensure(plots_dir)
+    rcs_by_mit = rcs_metrics.get("rcs_by_mitigation", {})
+    rcs_score  = rcs_metrics.get("rcs_score")
+
+    # Filter to mitigations where the metric is defined (not None)
+    mits = sorted(m for m in rcs_by_mit if rcs_by_mit[m] is not None)
+    if not mits:
+        return
+
+    vals  = [rcs_by_mit[m] for m in mits]
+    cols  = [GREEN if v >= 0.8 else (AMBER if v >= 0.5 else RED) for v in vals]
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+    bars = ax.bar(mits, vals, color=cols, width=0.45)
+    if rcs_score is not None:
+        ax.axhline(rcs_score, color=GRAY, linestyle="--", linewidth=1.5,
+                   label=f"Overall RCS = {rcs_score:.3f}")
+    ax.axhline(1.0, color=GREEN, linestyle=":", linewidth=1, alpha=0.5,
+               label="Perfect = 1.0")
+    ax.set_ylim(0, 1.15)
+    ax.set_xlabel("Mitigation")
+    ax.set_ylabel("RCS (0 – 1)")
+    ax.set_title(
+        "Refusal Consistency Score (RCS) by Mitigation\n"
+        "higher = more sustained blocking after first refusal",
+        fontsize=10,
+    )
+    ax.legend(fontsize=8)
+    for bar, val in zip(bars, vals):
+        ax.text(bar.get_x() + bar.get_width() / 2, val + 0.02,
+                f"{val:.3f}", ha="center", fontsize=9)
+    plt.tight_layout()
+    plt.savefig(os.path.join(plots_dir, "rcs_by_mitigation.png"), dpi=150)
+    plt.close()
+
+
+# ── 8. Mitigation comparison (grouped bar) ────────────────────────────────────
 # comparison_data format:
 #   [
 #     {"mitigation": "none", "length_group": "short", "asr_pct": 20.0},
@@ -338,85 +394,41 @@ def plot_mitigation_comparison(comparison_data: list[dict], plots_dir: str):
     plt.close()
 
 
-# ── 6. ADT heatmap (cross-run comparison) ─────────────────────────────────────
-# adt_data format:
-#   {
-#     "m1": {"seen_topic_1": 15.0, "seen_topic_2": 30.0, ...},
-#     "m2": {...},
-#     "m3": {...},
-#   }
-
-def plot_adt_heatmap(adt_data: dict, plots_dir: str):
-    _ensure(plots_dir)
-    if not adt_data:
-        return
-
-    mitigations = list(adt_data.keys())
-    topics      = sorted({t for m in adt_data.values() for t in m})
-    # Use NaN for missing entries so they appear as gray ("no data") rather
-    # than 0.0 which would falsely render as "Good" (green) on the heatmap.
-    matrix = np.full((len(mitigations), len(topics)), np.nan, dtype=float)
-    for i, m in enumerate(mitigations):
-        for j, t in enumerate(topics):
-            if t in adt_data[m]:
-                matrix[i, j] = adt_data[m][t]
-
-    finite_vals = matrix[np.isfinite(matrix)]
-    vmax = max(15.0, float(finite_vals.max())) if finite_vals.size else 15.0
-
-    fig, ax = plt.subplots(figsize=(max(6, len(topics) * 1.2), max(3, len(mitigations) * 0.8)))
-    cmap = plt.get_cmap("RdYlGn_r").copy()
-    cmap.set_bad(color="#E5E7EB")   # gray for NaN / missing
-    im = ax.imshow(matrix, cmap=cmap, vmin=0, vmax=vmax, aspect="auto")
-    plt.colorbar(im, ax=ax, label="ADT (%)")
-
-    ax.set_xticks(range(len(topics)))
-    ax.set_xticklabels([t.replace("_", " ").title() for t in topics],
-                       rotation=35, ha="right", fontsize=8)
-    ax.set_yticks(range(len(mitigations)))
-    ax.set_yticklabels([m.upper() for m in mitigations])
-    ax.set_title("Attack-Defence Transferability by Mitigation\n(cell = ADT for that seen topic)", fontsize=10)
-
-    for i in range(len(mitigations)):
-        for j in range(len(topics)):
-            if np.isfinite(matrix[i, j]):
-                ax.text(
-                    j, i, f"{matrix[i, j]:.1f}",
-                    ha="center", va="center", fontsize=8,
-                    color="white" if matrix[i, j] > (vmax * 0.55) else "black"
-                )
-            else:
-                ax.text(j, i, "N/A", ha="center", va="center", fontsize=7,
-                        color="#9CA3AF")
-
-    plt.tight_layout()
-    plt.savefig(os.path.join(plots_dir, "adt_heatmap.png"), dpi=150)
-    plt.close()
-
-
 # ── Convenience wrapper: generate all single-run plots at once ────────────────
 
 def save_all(
-    results:   list[dict],
-    mean_dl:   float,
-    cld_rows:  list[dict],
-    cld_val:   float | str,
-    failures:  list[dict],
-    plots_dir: str,
-    adt_by_seen_topic: dict | None = None,
+    results:     list[dict],
+    mean_dl:     float,
+    cld_rows:    list[dict],
+    cld_val:     float | str,
+    failures:    list[dict],
+    plots_dir:   str,
+    tvc_metrics: dict | None = None,
+    err_metrics: dict | None = None,
+    rcs_metrics: dict | None = None,
 ):
     plot_asr_by_topic(results, plots_dir)
     plot_detection_latency(results, mean_dl, plots_dir)
     plot_context_length_drift(cld_rows, cld_val, plots_dir)
     plot_failure_breakdown(failures, plots_dir)
-    plot_adt_by_seen_topic(adt_by_seen_topic or {}, plots_dir)
-    plot_adt_transfer_matrix(adt_by_seen_topic or {}, plots_dir)
+
+    if tvc_metrics:
+        plot_tvc(tvc_metrics, plots_dir)
+    if err_metrics:
+        plot_err(err_metrics, plots_dir)
+        plot_err_by_topic(err_metrics, plots_dir)
+    if rcs_metrics:
+        plot_rcs(rcs_metrics, plots_dir)
 
     print(f"Plots saved to {plots_dir}/")
     print("  asr_by_topic.png")
     print("  detection_latency_dist.png")
     print("  context_length_drift.png")
     print("  failure_breakdown.png")
-    if adt_by_seen_topic:
-        print("  adt_by_seen_topic.png")
-        print("  adt_transfer_matrix.png")
+    if tvc_metrics:
+        print("  tvc_by_topic.png")
+    if err_metrics:
+        print("  err_by_mitigation.png")
+        print("  err_by_topic.png")
+    if rcs_metrics:
+        print("  rcs_by_mitigation.png")

@@ -228,22 +228,26 @@ def print_summary(
     print(f"Over-Refusal Rate     : {summary['over_refusal_rate_pct']}%")
     print(f"Context-Length Drift  : {cld_val}%")
     print(f"False positives       : {summary['false_positives']}")
-    if "mean_adt" in summary:
-        print(f"Mean ADT              : {summary['mean_adt']}%")
-        print(f"Worst-Case ADT        : {summary['worst_adt']}%")
-        print(f"Best-Case ADT         : {summary['best_adt']}%")
+    # ── New metrics ──────────────────────────────────────────────────────────
+    tvc = summary.get("tvc_score")
+    print(f"Topic Vuln. Consist.  : {tvc if tvc is not None else 'N/A'}")
+    err = summary.get("err_overall")
+    print(f"Escalation Resist Rate: {err}%" if err is not None else "Escalation Resist Rate: N/A")
+    rcs = summary.get("rcs_score")
+    print(f"Refusal Consistency   : {rcs if rcs is not None else 'N/A'}")
     print("=============================\n")
     if cld_rows:
         print("ASR by length group:")
         for r in cld_rows:
             print(f"  {r['length_group']:8s}: {r['asr_pct']}%  (n={r['n']})")
         print()
-    if "adt_by_seen_topic" in summary:
-        print("ADT by seen topic:")
-        for seen_topic, stats in summary["adt_by_seen_topic"].items():
-            print(
-                f"  {seen_topic:25s}: seen={stats['asr_seen']}%  "
-                f"unseen={stats['asr_unseen']}%  ADT={stats['adt']}%  "
-                f"({stats['interpretation']})"
-            )
+    if summary.get("tvc_by_topic"):
+        print("TVC — ASR by topic:")
+        for topic, stats in sorted(summary["tvc_by_topic"].items()):
+            print(f"  {topic:25s}: {stats['asr_pct']}%  (n={stats['n']})")
+        print()
+    if summary.get("err_by_mitigation"):
+        print("ERR by mitigation:")
+        for mit, val in sorted(summary["err_by_mitigation"].items()):
+            print(f"  {mit:10s}: {val}%")
         print()
