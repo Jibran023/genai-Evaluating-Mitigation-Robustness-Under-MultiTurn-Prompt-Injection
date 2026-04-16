@@ -9,13 +9,12 @@ on:
         type: choice
         options:
           - 'meta/llama-3.1-8b-instruct'
-          - 'meta/llama-3.3-70b-instruct'
-          - 'google/gemma-2-9b-it'
-          - 'mistralai/mixtral-8x7b-instruct-v0.1'
-          - 'llama-3.1-8b-instant'
-          - 'llama-3.3-70b-versatile'
-          - 'gemini-2.0-flash'
-          - 'gemini-1.5-pro'
+          - 'mistralai/mistral-small-3.1-24b-instruct-2503'
+          - 'deepseek-ai/deepseek-v3.1-terminus'
+          - 'openai/gpt-oss-120b'
+          - 'moonshotai/kimi-k2-instruct'
+          - 'google/gemma-4-31b-it'
+          - 'qwen/qwen3-next-80b-a3b-instruct'
       provider:
         description: 'Provider for the selected model'
         required: true
@@ -52,16 +51,20 @@ jobs:
 
       - name: Run Evaluation
         env:
-          # Standard Keys
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          
-          # Model-Specific NVIDIA Keys (Maps GitHub Secrets to the expected Env Var)
+          # Model-Specific NVIDIA Keys
           NVIDIA_API_KEY_META_LLAMA_3_1_8B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_META_LLAMA_3_1_8B_INSTRUCT }}
           NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT }}
-          NVIDIA_API_KEY_GOOGLE_GEMMA_2_9B_IT: ${{ secrets.NVIDIA_API_KEY_GOOGLE_GEMMA_2_9B_IT }}
+          NVIDIA_API_KEY_MISTRALAI_MISTRAL_SMALL_3_1_24B_INSTRUCT_2503: ${{ secrets.NVIDIA_API_KEY_MISTRALAI_MISTRAL_SMALL_3_1_24B_INSTRUCT_2503 }}
           NVIDIA_API_KEY_MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1: ${{ secrets.NVIDIA_API_KEY_MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1 }}
+          NVIDIA_API_KEY_DEEPSEEK_AI_DEEPSEEK_V3_1_TERMINUS: ${{ secrets.NVIDIA_API_KEY_DEEPSEEK_AI_DEEPSEEK_V3_1_TERMINUS }}
+          NVIDIA_API_KEY_OPENAI_GPT_OSS_120B: ${{ secrets.NVIDIA_API_KEY_OPENAI_GPT_OSS_120B }}
+          NVIDIA_API_KEY_MOONSHOTAI_KIMI_K2_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_MOONSHOTAI_KIMI_K2_INSTRUCT }}
+          NVIDIA_API_KEY_GOOGLE_GEMMA_4_31B_IT: ${{ secrets.NVIDIA_API_KEY_GOOGLE_GEMMA_4_31B_IT }}
+          NVIDIA_API_KEY_QWEN_QWEN3_NEXT_80B_A3B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_QWEN_QWEN3_NEXT_80B_A3B_INSTRUCT }}
+          EVAL_RESUME: "1"
         run: |
           # Construct the --skip arguments to only run the current mitigation
           ALL_MITIGATIONS="none m1 m2 m3"
@@ -78,13 +81,26 @@ jobs:
             LIMIT_FLAG="--limit ${{ github.event.inputs.limit }}"
           fi
 
-          echo "Running mitigation: ${{ matrix.mitigation }} with $LIMIT_FLAG"
-          
-          python Utils/run_all_mitigations.py \
-            --provider ${{ github.event.inputs.provider }} \
-            --model ${{ github.event.inputs.model }} \
-            $LIMIT_FLAG \
-            --skip $SKIP_LIST
+          # Retry Loop: If the API times out or fails, wait and resume
+          MAX_RETRIES=3
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i/$MAX_RETRIES for mitigation: ${{ matrix.mitigation }}"
+            
+            python Utils/run_all_mitigations.py \
+              --provider ${{ github.event.inputs.provider }} \
+              --model ${{ github.event.inputs.model }} \
+              $LIMIT_FLAG \
+              --skip $SKIP_LIST \
+              --resume && break || {
+                if [ $i -lt $MAX_RETRIES ]; then
+                  echo "Run failed. Waiting 60s before resuming attempt $(($i+1))..."
+                  sleep 60
+                else
+                  echo "Run failed after $MAX_RETRIES attempts. Exiting."
+                  exit 1
+                fi
+              }
+          done
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
