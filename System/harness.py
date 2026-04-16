@@ -171,6 +171,7 @@ try:
             history.append({"role": "user", "content": user_text})
 
             # ── call the appropriate mitigation ────────────────────────────
+            print(f"  [API] Requesting turn {turn['turn']}...")
             response, blocked = apply_mitigation(
                 mitigation = config.MITIGATION,
                 user_text  = user_text,
