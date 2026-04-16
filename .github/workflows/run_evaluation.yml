@@ -69,32 +69,26 @@ jobs:
           NVIDIA_API_KEY_MOONSHOTAI_KIMI_K2_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_MOONSHOTAI_KIMI_K2_INSTRUCT }}
           NVIDIA_API_KEY_GOOGLE_GEMMA_4_31B_IT: ${{ secrets.NVIDIA_API_KEY_GOOGLE_GEMMA_4_31B_IT }}
           NVIDIA_API_KEY_QWEN_QWEN3_NEXT_80B_A3B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_QWEN_QWEN3_NEXT_80B_A3B_INSTRUCT }}
-          # harness.py reads these env vars directly — no subprocess wrapper needed
+          # Logic flags
           EVAL_MITIGATION: ${{ matrix.mitigation }}
           EVAL_PROVIDER: ${{ github.event.inputs.provider }}
           EVAL_MODEL: ${{ github.event.inputs.model }}
           EVAL_MAX_SAMPLES: ${{ github.event.inputs.limit }}
           EVAL_RESUME: "1"
+          PYTHONUNBUFFERED: "1"   # Ensures logs appear immediately
         run: |
-          MODEL_SLUG="${{ github.event.inputs.model }}"
-          MODEL_SLUG="${MODEL_SLUG//\//-}"
-
-          SAMPLE_SLUG="${{ github.event.inputs.limit }}"
-          if [ -z "$SAMPLE_SLUG" ]; then
-            SAMPLE_SLUG="all_samples"
-          fi
-
-          echo "Running mitigation: ${{ matrix.mitigation }}"
-          echo "Model:              ${{ github.event.inputs.model }}"
-          echo "Provider:           ${{ github.event.inputs.provider }}"
-          echo "Sample slug:        $SAMPLE_SLUG"
+          echo "Starting evaluation..."
+          echo "Mitigation : $EVAL_MITIGATION"
+          echo "Model      : $EVAL_MODEL"
+          echo "Samples    : ${EVAL_MAX_SAMPLES:-all}"
 
           MAX_RETRIES=3
           for i in $(seq 1 $MAX_RETRIES); do
             echo "Attempt $i/$MAX_RETRIES..."
+            # Call the harness directly — env vars above handle all configuration
             python System/harness.py && break || {
               if [ $i -lt $MAX_RETRIES ]; then
-                echo "Run failed. Waiting 60s before resuming attempt $(($i+1))..."
+                echo "Run failed. Waiting 60s before resuming..."
                 sleep 60
               else
                 echo "Run failed after $MAX_RETRIES attempts."
