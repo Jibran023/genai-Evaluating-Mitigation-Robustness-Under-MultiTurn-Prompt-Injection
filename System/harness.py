@@ -27,7 +27,7 @@ from dotenv      import load_dotenv
 
 import config
 from mitigations import apply_mitigation, get_system_prompt, StateMonitor
-from metrics     import ai_refused, bucket, compute_summary, compute_cld, compute_adt_all_topics
+from metrics     import ai_refused, bucket, compute_summary, compute_cld, compute_tvc, compute_err, compute_rcs
 from plots       import save_all
 from io_utils    import (
     load_dataset, save_checkpoint, load_checkpoint, save_metrics,
@@ -337,15 +337,22 @@ except Exception as exc:
 summary           = compute_summary(results)
 cld_val, cld_rows = compute_cld(results)
 
-if config.MITIGATION != "none":
-    adt_metrics = compute_adt_all_topics(results)
-    if adt_metrics["adt_by_seen_topic"]:
-        summary.update({
-            "mean_adt"          : adt_metrics["mean_adt"],
-            "worst_adt"         : adt_metrics["worst_adt"],
-            "best_adt"          : adt_metrics["best_adt"],
-            "adt_by_seen_topic" : adt_metrics["adt_by_seen_topic"],
-        })
+# ── New metrics (computable from existing data, no re-run needed) ─────────────
+tvc_metrics = compute_tvc(results)
+err_metrics = compute_err(turn_logs)
+rcs_metrics = compute_rcs(turn_logs)
+summary.update({
+    "tvc_score"         : tvc_metrics["tvc_score"],
+    "tvc_by_topic"      : tvc_metrics["tvc_by_topic"],
+    "err_overall"       : err_metrics["err_overall"],
+    "err_early"         : err_metrics["err_early"],
+    "err_late"          : err_metrics["err_late"],
+    "err_by_mitigation" : err_metrics["err_by_mitigation"],
+    "err_by_topic"      : err_metrics["err_by_topic"],
+    "rcs_score"         : rcs_metrics["rcs_score"],
+    "rcs_by_mitigation" : rcs_metrics["rcs_by_mitigation"],
+    "rcs_by_topic"      : rcs_metrics["rcs_by_topic"],
+})
 
 print_summary(summary, cld_rows, cld_val)
 save_metrics(config.OUT_DIR, summary, cld_rows, cld_val)
@@ -367,6 +374,6 @@ save_run_info(
 )
 save_all(results, summary["mean_detection_latency_turns"],
          cld_rows, cld_val, failures, config.PLOTS_DIR,
-         summary.get("adt_by_seen_topic"))
+         tvc_metrics, err_metrics, rcs_metrics)
 
 print(f"\nAll outputs saved to: {config.OUT_DIR}/")

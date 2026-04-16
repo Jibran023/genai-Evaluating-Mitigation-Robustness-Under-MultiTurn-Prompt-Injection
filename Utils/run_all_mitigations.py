@@ -52,15 +52,18 @@ import subprocess
 import sys
 import shutil
 
-# ── Locate project root (this script lives in Utils/) ────────────────────────
 _UTILS   = os.path.dirname(os.path.abspath(__file__))
 _PROJECT = os.path.dirname(_UTILS)
 _SYSTEM  = os.path.join(_PROJECT, "System")
 
 sys.path.insert(0, _SYSTEM)
 
-from plots    import plot_mitigation_comparison, plot_adt_heatmap  # noqa: E402
-import config as _cfg                                            # noqa: E402
+from plots    import (plot_mitigation_comparison, plot_comparison_radar,
+                     plot_tradeoff_scatter, plot_latency_efficiency_bubble,
+                     plot_comparison_heatmap, plot_efficiency_bars, 
+                     plot_tradeoff_bars, plot_comparison_response_curves,
+                     plot_comparison_run_history)
+import config as _cfg
 
 MITIGATIONS  = ["none", "m1", "m2", "m3"]
 RESULTS_ROOT = os.path.join(_PROJECT, "results")
@@ -250,18 +253,6 @@ def build_comparison_plots(
                     shutil.copy2(src, dst)
     print(f"  [OK] Individual plots organized into subfolders in -> {comp_dir}/")
 
-    # ── 2. ADT heatmap (ADT per seen topic per mitigation) ────────────────────
-    adt_data: dict[str, dict[str, float]] = {}
-    for m in mitigations_done:
-        metrics = _load_metrics(m, model_slug, sample_slug)
-        if metrics and metrics.get("adt_by_seen_topic"):
-            adt_data[m] = {
-                topic: stats["adt"]
-                for topic, stats in metrics["adt_by_seen_topic"].items()
-            }
-
-    plot_adt_heatmap(adt_data, comp_dir)
-    print(f"  [OK] adt_heatmap.png            ->  {comp_dir}/")
 
     # ── 3. Side-by-side summary JSON ─────────────────────────────────────────
     METRIC_KEYS = [
@@ -271,9 +262,11 @@ def build_comparison_plots(
         ("mean_ai_latency_turns",           "Mean AI Latency (turns)"),
         ("over_refusal_rate_pct",           "Over-Refusal Rate (%)"),
         ("context_length_drift_pct",        "Context-Length Drift (%)"),
-        ("mean_adt",                        "Mean ADT (%)"),
-        ("worst_adt",                       "Worst-Case ADT (%)"),
-        ("best_adt",                        "Best-Case ADT (%)"),
+        ("tvc_score",                       "Topic Vulnerability Consistency"),
+        ("err_overall",                     "Escalation Resistance Rate (%)"),
+        ("err_early",                       "ERR — Early Escalation (%)"),
+        ("err_late",                        "ERR — Late Escalation (%)"),
+        ("rcs_score",                       "Refusal Consistency Score"),
         ("attacks_caught",                  "Attacks Caught"),
         ("attacks_missed",                  "Attacks Missed"),
         ("false_positives",                 "False Positives"),
@@ -293,6 +286,22 @@ def build_comparison_plots(
             "mitigations" : summary_table,
         }, f, indent=2)
     print(f"  [OK] comparison_summary.json    ->  {comp_dir}/")
+
+    # ── 2. Combined Comparison Visuals ───────────────────────────────────────
+    plot_comparison_heatmap(summary_table, comp_dir)
+    print(f"  [OK] mitigation_heatmap.png       ->  {comp_dir}/")
+
+    plot_efficiency_bars(summary_table, comp_dir)
+    print(f"  [OK] efficiency_comparison_bars.png -> {comp_dir}/")
+
+    plot_tradeoff_bars(summary_table, comp_dir)
+    print(f"  [OK] tradeoff_comparison_bars.png   -> {comp_dir}/")
+
+    plot_comparison_response_curves(all_results, comp_dir)
+    print(f"  [OK] comparison_response_curves.png  -> {comp_dir}/")
+
+    plot_comparison_run_history(all_results, comp_dir)
+    print(f"  [OK] comparison_run_history.png      -> {comp_dir}/")
 
     # ── Console table ─────────────────────────────────────────────────────────
     col_w       = 8
