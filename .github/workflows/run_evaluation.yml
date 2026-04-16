@@ -1,0 +1,141 @@
+name: Model Evaluation Harness
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Select Model to Evaluate'
+        required: true
+        type: choice
+        options:
+          - 'meta/llama-3.1-8b-instruct'
+          - 'meta/llama-3.3-70b-instruct'
+          - 'google/gemma-2-9b-it'
+          - 'mistralai/mixtral-8x7b-instruct-v0.1'
+          - 'llama-3.1-8b-instant'
+          - 'llama-3.3-70b-versatile'
+          - 'gemini-2.0-flash'
+          - 'gemini-1.5-pro'
+      provider:
+        description: 'Provider for the selected model'
+        required: true
+        type: choice
+        options:
+          - 'nvidia'
+          - 'groq'
+          - 'gemini'
+      limit:
+        description: 'Sample limit (leave empty for all_samples)'
+        required: false
+        default: '20'
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        mitigation: [none, m1, m2, m3]
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Evaluation
+        env:
+          # Standard Keys
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          
+          # Model-Specific NVIDIA Keys (Maps GitHub Secrets to the expected Env Var)
+          NVIDIA_API_KEY_META_LLAMA_3_1_8B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_META_LLAMA_3_1_8B_INSTRUCT }}
+          NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT }}
+          NVIDIA_API_KEY_GOOGLE_GEMMA_2_9B_IT: ${{ secrets.NVIDIA_API_KEY_GOOGLE_GEMMA_2_9B_IT }}
+          NVIDIA_API_KEY_MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1: ${{ secrets.NVIDIA_API_KEY_MISTRALAI_MIXTRAL_8X7B_INSTRUCT_V0_1 }}
+        run: |
+          # Construct the --skip arguments to only run the current mitigation
+          ALL_MITIGATIONS="none m1 m2 m3"
+          SKIP_LIST=""
+          for m in $ALL_MITIGATIONS; do
+            if [ "$m" != "${{ matrix.mitigation }}" ]; then
+              SKIP_LIST="$SKIP_LIST $m"
+            fi
+          done
+          
+          # Prepare the limit flag
+          LIMIT_FLAG=""
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            LIMIT_FLAG="--limit ${{ github.event.inputs.limit }}"
+          fi
+
+          echo "Running mitigation: ${{ matrix.mitigation }} with $LIMIT_FLAG"
+          
+          python Utils/run_all_mitigations.py \
+            --provider ${{ github.event.inputs.provider }} \
+            --model ${{ github.event.inputs.model }} \
+            $LIMIT_FLAG \
+            --skip $SKIP_LIST
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.mitigation }}
+          path: results/
+          retention-days: 7
+
+  aggregate:
+    needs: evaluate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download all results
+        uses: actions/download-artifact@v4
+        with:
+          path: merged_results
+          pattern: results-*
+          merge-multiple: true
+
+      - name: Prepare Results Directory
+        run: |
+          mkdir -p results
+          cp -r merged_results/* results/
+
+      - name: Generate Comparison Plots
+        run: |
+          LIMIT_FLAG=""
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            LIMIT_FLAG="--limit ${{ github.event.inputs.limit }}"
+          fi
+
+          python Utils/run_all_mitigations.py \
+            --plots-only \
+            --model ${{ github.event.inputs.model }} \
+            $LIMIT_FLAG
+
+      - name: Upload Final Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: evaluation-results-full
+          path: results/
+          retention-days: 30

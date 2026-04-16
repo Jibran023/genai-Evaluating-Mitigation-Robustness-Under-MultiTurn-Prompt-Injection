@@ -161,7 +161,7 @@ def get_api_key() -> str | None:
 # This prevents limited smoke-test runs from overwriting full-dataset results.
 SAMPLE_SLUG = str(MAX_SAMPLES) if MAX_SAMPLES is not None else "all_samples"
 
-DATASET   = os.path.join(_PROJECT, "Datasets", "full_dataset_enhanced_v2.json")
+DATASET   = os.path.join(_PROJECT, "Datasets", "test2_final_hardened_v2_cleaned.json")
 BASE_OUT  = os.path.join(_PROJECT, "results")
 OUT_DIR   = os.path.join(BASE_OUT, MITIGATION, MODEL_SLUG, SAMPLE_SLUG)
 PLOTS_DIR = os.path.join(OUT_DIR, "plots")
