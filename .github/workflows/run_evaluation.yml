@@ -35,7 +35,7 @@ jobs:
       fail-fast: false
       matrix:
         mitigation: [none, m1, m2, m3]
-    
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -49,12 +49,17 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
+      # Pre-build the matplotlib font cache so harness.py doesn't hang on it
+      - name: Pre-build Matplotlib Font Cache
+        run: |
+          MPLBACKEND=Agg python -c "import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; print('Font cache ready')"
+
       - name: Run Evaluation
         env:
+          MPLBACKEND: Agg
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          # Model-Specific NVIDIA Keys
           NVIDIA_API_KEY_META_LLAMA_3_1_8B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_META_LLAMA_3_1_8B_INSTRUCT }}
           NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_META_LLAMA_3_3_70B_INSTRUCT }}
           NVIDIA_API_KEY_MISTRALAI_MISTRAL_SMALL_3_1_24B_INSTRUCT_2503: ${{ secrets.NVIDIA_API_KEY_MISTRALAI_MISTRAL_SMALL_3_1_24B_INSTRUCT_2503 }}
@@ -64,42 +69,38 @@ jobs:
           NVIDIA_API_KEY_MOONSHOTAI_KIMI_K2_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_MOONSHOTAI_KIMI_K2_INSTRUCT }}
           NVIDIA_API_KEY_GOOGLE_GEMMA_4_31B_IT: ${{ secrets.NVIDIA_API_KEY_GOOGLE_GEMMA_4_31B_IT }}
           NVIDIA_API_KEY_QWEN_QWEN3_NEXT_80B_A3B_INSTRUCT: ${{ secrets.NVIDIA_API_KEY_QWEN_QWEN3_NEXT_80B_A3B_INSTRUCT }}
+          # harness.py reads these env vars directly — no subprocess wrapper needed
+          EVAL_MITIGATION: ${{ matrix.mitigation }}
+          EVAL_PROVIDER: ${{ github.event.inputs.provider }}
+          EVAL_MODEL: ${{ github.event.inputs.model }}
+          EVAL_MAX_SAMPLES: ${{ github.event.inputs.limit }}
           EVAL_RESUME: "1"
         run: |
-          # Construct the --skip arguments to only run the current mitigation
-          ALL_MITIGATIONS="none m1 m2 m3"
-          SKIP_LIST=""
-          for m in $ALL_MITIGATIONS; do
-            if [ "$m" != "${{ matrix.mitigation }}" ]; then
-              SKIP_LIST="$SKIP_LIST $m"
-            fi
-          done
-          
-          # Prepare the limit flag
-          LIMIT_FLAG=""
-          if [ -n "${{ github.event.inputs.limit }}" ]; then
-            LIMIT_FLAG="--limit ${{ github.event.inputs.limit }}"
+          MODEL_SLUG="${{ github.event.inputs.model }}"
+          MODEL_SLUG="${MODEL_SLUG//\//-}"
+
+          SAMPLE_SLUG="${{ github.event.inputs.limit }}"
+          if [ -z "$SAMPLE_SLUG" ]; then
+            SAMPLE_SLUG="all_samples"
           fi
 
-          # Retry Loop: If the API times out or fails, wait and resume
+          echo "Running mitigation: ${{ matrix.mitigation }}"
+          echo "Model:              ${{ github.event.inputs.model }}"
+          echo "Provider:           ${{ github.event.inputs.provider }}"
+          echo "Sample slug:        $SAMPLE_SLUG"
+
           MAX_RETRIES=3
           for i in $(seq 1 $MAX_RETRIES); do
-            echo "Attempt $i/$MAX_RETRIES for mitigation: ${{ matrix.mitigation }}"
-            
-            python Utils/run_all_mitigations.py \
-              --provider ${{ github.event.inputs.provider }} \
-              --model ${{ github.event.inputs.model }} \
-              $LIMIT_FLAG \
-              --skip $SKIP_LIST \
-              --resume && break || {
-                if [ $i -lt $MAX_RETRIES ]; then
-                  echo "Run failed. Waiting 60s before resuming attempt $(($i+1))..."
-                  sleep 60
-                else
-                  echo "Run failed after $MAX_RETRIES attempts. Exiting."
-                  exit 1
-                fi
-              }
+            echo "Attempt $i/$MAX_RETRIES..."
+            python System/harness.py && break || {
+              if [ $i -lt $MAX_RETRIES ]; then
+                echo "Run failed. Waiting 60s before resuming attempt $(($i+1))..."
+                sleep 60
+              else
+                echo "Run failed after $MAX_RETRIES attempts."
+                exit 1
+              fi
+            }
           done
 
       - name: Upload Results
@@ -125,6 +126,10 @@ jobs:
       - name: Install Dependencies
         run: pip install -r requirements.txt
 
+      - name: Pre-build Matplotlib Font Cache
+        run: |
+          MPLBACKEND=Agg python -c "import matplotlib; matplotlib.use('Agg'); import matplotlib.pyplot as plt; print('Font cache ready')"
+
       - name: Download all results
         uses: actions/download-artifact@v4
         with:
@@ -138,6 +143,8 @@ jobs:
           cp -r merged_results/* results/
 
       - name: Generate Comparison Plots
+        env:
+          MPLBACKEND: Agg
         run: |
           LIMIT_FLAG=""
           if [ -n "${{ github.event.inputs.limit }}" ]; then
@@ -146,7 +153,7 @@ jobs:
 
           python Utils/run_all_mitigations.py \
             --plots-only \
-            --model ${{ github.event.inputs.model }} \
+            --model "${{ github.event.inputs.model }}" \
             $LIMIT_FLAG
 
       - name: Upload Final Results

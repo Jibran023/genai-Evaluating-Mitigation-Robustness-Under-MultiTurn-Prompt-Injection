@@ -109,3 +109,11 @@ Every run generates a deep-dive analysis in its results folder:
 
 ## 🧪 Reproducibility Notes
 All runs are **deterministic** (Temperature = 0.0, Seed = 42). The system records the Python version, dataset MD5 hash, and platform details in `run_info.json` for every execution.
+
+deepseek-ai/deepseek-v3.1-terminus
+openai/gpt-oss-120b
+moonshotai/kimi-k2-instruct
+google/gemma-4-31b-it
+qwen/qwen3-next-80b-a3b-instruct
+meta/llama-3_3-70b-instruct
+mistralai/mistral-small-3_1-24b-instruct-2503
