@@ -27,7 +27,10 @@ from dotenv      import load_dotenv
 
 import config
 from mitigations import apply_mitigation, get_system_prompt, StateMonitor
-from metrics     import ai_refused, bucket, compute_summary, compute_cld, compute_tvc, compute_err, compute_rcs
+from metrics     import (ai_refused, bucket, compute_summary, compute_cld,
+                         compute_tvc, compute_err, compute_rcs,
+                         set_judge_client, get_judge_stats,
+                         set_backup_judge_client)
 from plots       import save_all
 from io_utils    import (
     load_dataset, save_checkpoint, load_checkpoint, save_metrics,
@@ -61,6 +64,33 @@ client = OpenAI(base_url=_provider["base_url"], api_key=_api_key, timeout=120.0)
 
 os.makedirs(config.OUT_DIR,   exist_ok=True)
 os.makedirs(config.PLOTS_DIR, exist_ok=True)
+
+# ── LLM-as-judge client ───────────────────────────────────────────────────────
+# Uses a dedicated NVIDIA_JUDGE_API_KEY so the judge has its own credit pool.
+# Falls back to the evaluation model's key if no dedicated key is set.
+# Judge is always routed through NVIDIA NIM regardless of the evaluation provider.
+_judge_api_key = os.getenv("NVIDIA_JUDGE_API_KEY") or _api_key
+if _judge_api_key:
+    _NVIDIA_BASE = "https://integrate.api.nvidia.com/v1"
+    _judge_client = OpenAI(
+        base_url = _NVIDIA_BASE,
+        api_key  = _judge_api_key,
+        timeout  = 60.0,
+    )
+    set_judge_client(_judge_client)
+    
+    # ── Initialize backup judge if key is available ──
+    _backup_judge_api_key = os.getenv("NVIDIA_JUDGE_API_KEY2")
+    if _backup_judge_api_key:
+        _backup_client = OpenAI(
+            base_url = _NVIDIA_BASE,
+            api_key  = _backup_judge_api_key,
+            timeout  = 60.0,
+        )
+        set_backup_judge_client(_backup_client, "nvidia/nemotron-3-super-120b-a12b")
+
+else:
+    print("[JUDGE][WARN] No NVIDIA_JUDGE_API_KEY found — LLM judge disabled, using phrase-match only.")
 
 # ── LLM call wrapper ──────────────────────────────────────────────────────────
 
@@ -171,7 +201,7 @@ try:
             history.append({"role": "user", "content": user_text})
 
             # ── call the appropriate mitigation ────────────────────────────
-            print(f"  [API] Requesting turn {turn['turn']}...")
+            # print(f"  [API] Requesting turn {turn['turn']}...")
             response, blocked = apply_mitigation(
                 mitigation = config.MITIGATION,
                 user_text  = user_text,
@@ -370,6 +400,7 @@ save_run_info(
         "short_max"     : config.SHORT_MAX,
         "medium_max"    : config.MEDIUM_MAX,
         "refusal_phrases": config.REFUSAL_PHRASES,
+        "judge_stats"   : get_judge_stats(),
     },
     summary=summary,
 )
@@ -377,4 +408,20 @@ save_all(results, summary["mean_detection_latency_turns"],
          cld_rows, cld_val, failures, config.PLOTS_DIR,
          tvc_metrics, err_metrics, rcs_metrics)
 
+# ── LLM Judge usage summary ───────────────────────────────────────────────────
+js = get_judge_stats()
+if js["judge_calls"] > 0:
+    print(f"\n{'='*60}")
+    print(f"  LLM-AS-JUDGE SUMMARY ({js['judge_model']})")
+    print(f"{'='*60}")
+    print(f"  Total judge calls    : {js['judge_calls']}")
+    print(f"  Judged as REFUSED    : {js['judge_refused']}")
+    print(f"  Judged as COMPLIED   : {js['judge_complied']}")
+    pct = round(js['judge_refused'] / js['judge_calls'] * 100, 1) if js['judge_calls'] else 0
+    print(f"  Refusal rate (judge) : {pct}%")
+    print(f"{'='*60}\n")
+else:
+    print("\n[JUDGE] Judge was not invoked (all responses caught by phrase-match).\n")
+
 print(f"\nAll outputs saved to: {config.OUT_DIR}/")
+
