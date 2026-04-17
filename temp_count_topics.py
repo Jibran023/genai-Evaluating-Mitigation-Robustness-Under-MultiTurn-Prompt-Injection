@@ -144,7 +144,7 @@
 import json
 from collections import defaultdict
 
-FILE = "Datasets/test2_final.json"  # change if needed
+FILE = "Datasets/full_dataset_final.json"  # change if needed
 
 with open(FILE, "r", encoding="utf-8") as f:
     data = json.load(f)
@@ -180,4 +180,3 @@ print("\n========================")
 print(f"TOTAL SAMPLES: {total_all}")
 print(f"TOTAL ATTACK: {total_attack}")
 print(f"TOTAL BENIGN: {total_benign}")
-print("========================\n")
