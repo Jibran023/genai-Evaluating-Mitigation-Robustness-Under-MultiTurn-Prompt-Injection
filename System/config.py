@@ -70,6 +70,7 @@ PROVIDERS: dict = {
             "llama3-70b-8192",          # separate quota from 3.3
             "mixtral-8x7b-32768",       # 32K context | separate quota
             "gemma2-9b-it",             # Google Gemma | separate quota
+            "openai/gpt-oss-120b",      # OpenAI's open-weights model on Groq
         ],
     },
     # ── Google Gemini ───────────────────────────────────────────────────────
@@ -82,6 +83,7 @@ PROVIDERS: dict = {
             "gemini-2.0-flash",         # ★ recommended: 1500 req/day free, very fast
             "gemini-1.5-flash",         # 1500 req/day free
             "gemini-1.5-pro",           # 50 req/day free | more powerful
+            "google/gemma-4-31b-it",    # Latest multimodal Gemma (2026)
         ],
     },
     # ── NVIDIA NIM ───────────────────────────────────────────────────────────
@@ -92,9 +94,14 @@ PROVIDERS: dict = {
         "api_key_env" : "NVIDIA_API_KEY",
         "models"      : [
             "meta/llama-3.1-8b-instruct",           # fast, generous quota
-            "meta/llama-3.3-70b-instruct",          # higher quality
+            "meta/llama-3.3-70b-instruct",          # higher quality (70B)
             "google/gemma-2-9b-it",                 # Gemma via NVIDIA
+            "mistralai/mistral-small-3.1-24b-instruct-2503", # New 24B Mistral (2025)
             "mistralai/mixtral-8x7b-instruct-v0.1", # 32K context
+            "deepseek-ai/deepseek-v3.1-terminus",   # MoE razonamiento (2025)
+            "openai/gpt-oss-120b",                  # OpenAI 120B (2025)
+            "moonshotai/kimi-k2-instruct",          # Kimi Instructions (2025)
+            "qwen/qwen3-next-80b-a3b-instruct",      # Sparse MoE (2025)
         ],
     },
 }
@@ -161,7 +168,7 @@ def get_api_key() -> str | None:
 # This prevents limited smoke-test runs from overwriting full-dataset results.
 SAMPLE_SLUG = str(MAX_SAMPLES) if MAX_SAMPLES is not None else "all_samples"
 
-DATASET   = os.path.join(_PROJECT, "Datasets", "full_dataset_final.json")
+DATASET   = os.path.join(_PROJECT, "Datasets", "test2_final_hardened_v2_cleaned.json")
 BASE_OUT  = os.path.join(_PROJECT, "results")
 OUT_DIR   = os.path.join(BASE_OUT, MITIGATION, MODEL_SLUG, SAMPLE_SLUG)
 PLOTS_DIR = os.path.join(OUT_DIR, "plots")
