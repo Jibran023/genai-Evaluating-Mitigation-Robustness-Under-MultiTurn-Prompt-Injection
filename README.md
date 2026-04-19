@@ -36,15 +36,13 @@ graph TD
     D -.->|Feedback Loop| B
     
     B --> E[Evaluation Stage]
-    E --> F{phrase-based detection}
+    E --> F{Phrase-Based Detection}
     F -- "Inconclusive" --> G[LLM-as-Judge]
-    F -- "Clear Match" --> H[Metrics Engine<br/>ASR, Latency, CLD, ADT]
+    F -- "Clear Match" --> H[Evaluation Output]
     G --> H
     
-    H --> I[Results & Visualizations<br/>Heatmaps, Plots, JSONs]
-    
-    classDef default fill:#f9f9f9,stroke:#333,stroke-width:2px;
-    classDef mitigation fill:#e1f5fe,stroke:#0288d1;
+    classDef default fill:#000000,stroke:#555,stroke-width:2px,color:#ffffff;
+    classDef mitigation fill:#ffffff,stroke:#333,stroke-width:2px,color:#000000;
     class M0,M1,M2,M3 mitigation;
 ```
 
