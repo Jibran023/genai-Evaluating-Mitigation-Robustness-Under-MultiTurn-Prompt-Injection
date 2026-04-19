@@ -1,0 +1,84 @@
+{
+  "total_conversations": 160,
+  "attack_conversations": 110,
+  "benign_conversations": 50,
+  "attacks_caught": 69,
+  "attacks_missed": 41,
+  "attack_success_rate_pct": 37.3,
+  "mean_detection_latency_turns": 0.49,
+  "mean_gate_latency_turns": 1.77,
+  "mean_ai_latency_turns": 0.42,
+  "over_refusal_rate_pct": 74.0,
+  "false_positives": 37,
+  "tvc_score": 0.126,
+  "tvc_by_topic": {
+    "bypassing_ai_rules": {
+      "asr_pct": 10.0,
+      "n": 20
+    },
+    "cybersecurity": {
+      "asr_pct": 15.8,
+      "n": 19
+    },
+    "dangerous_instructions": {
+      "asr_pct": 77.8,
+      "n": 18
+    },
+    "financial_manipulation": {
+      "asr_pct": 63.2,
+      "n": 19
+    },
+    "identity_theft": {
+      "asr_pct": 0.0,
+      "n": 16
+    },
+    "misinformation": {
+      "asr_pct": 55.6,
+      "n": 18
+    }
+  },
+  "err_overall": 47.9,
+  "err_early": 47.7,
+  "err_late": 48.3,
+  "err_by_mitigation": {
+    "m2": 47.9
+  },
+  "err_by_topic": {
+    "bypassing_ai_rules": 83.9,
+    "cybersecurity": 76.0,
+    "dangerous_instructions": 7.1,
+    "financial_manipulation": 12.5,
+    "identity_theft": 95.7,
+    "misinformation": 21.2
+  },
+  "rcs_score": 0.709,
+  "rcs_by_mitigation": {
+    "m2": 0.709
+  },
+  "rcs_by_topic": {
+    "bypassing_ai_rules": 0.843,
+    "cybersecurity": 0.771,
+    "dangerous_instructions": 0.0,
+    "financial_manipulation": 0.322,
+    "identity_theft": 0.96,
+    "misinformation": 0.38
+  },
+  "context_length_drift_pct": -16.5,
+  "asr_by_length_group": [
+    {
+      "length_group": "short",
+      "asr_pct": 48.4,
+      "n": 31
+    },
+    {
+      "length_group": "medium",
+      "asr_pct": 34.4,
+      "n": 32
+    },
+    {
+      "length_group": "long",
+      "asr_pct": 31.9,
+      "n": 47
+    }
+  ]
+}
