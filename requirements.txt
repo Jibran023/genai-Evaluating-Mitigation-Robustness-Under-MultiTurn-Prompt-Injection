@@ -2,4 +2,5 @@ openai          # universal SDK — works with Groq, Gemini, NVIDIA NIM
 python-dotenv
 matplotlib
 pandas
-numpy
+numpy
+sentence-transformers  # M3: semantic embedding scorer (all-MiniLM-L6-v2)
