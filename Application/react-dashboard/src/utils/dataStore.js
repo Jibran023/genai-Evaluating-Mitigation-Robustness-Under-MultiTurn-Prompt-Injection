@@ -40,6 +40,19 @@ export const getComparisonSummary = (modelSlug) => {
   return null;
 };
 
+// Get preloaded comparisons for ALL models
+export const getAllModelsComparisons = () => {
+  const allData = {};
+  Object.keys(compImport).forEach(path => {
+    const parts = path.split('/');
+    const modelSlug = parts[parts.length - 3];
+    if (modelSlug) {
+      allData[modelSlug] = compImport[path].default || compImport[path];
+    }
+  });
+  return allData;
+};
+
 // Async load results data for the charts (these are large files, so loaded dynamically)
 export const loadResultsData = async (modelSlug) => {
   const data = {};
@@ -64,4 +77,21 @@ export const getDataset = () => {
     return datasetImport[path].default || datasetImport[path];
   }
   return [];
+};
+
+// Async load results data across all models for a specific mitigation
+export const loadMitigationResultsAcrossModels = async (mitigationId) => {
+  const data = {};
+  const promises = Object.keys(resultsImportMap).map(async (path) => {
+    // path e.g.: ../../../../results/m1/openai-gpt-oss-120b/all_samples/results.json
+    const parts = path.split('/');
+    const mit = parts[parts.length - 4];
+    const modelSlug = parts[parts.length - 3];
+    if (mit === mitigationId && modelSlug) {
+      const module = await resultsImportMap[path]();
+      data[modelSlug] = module.default || module;
+    }
+  });
+  await Promise.all(promises);
+  return data;
 };

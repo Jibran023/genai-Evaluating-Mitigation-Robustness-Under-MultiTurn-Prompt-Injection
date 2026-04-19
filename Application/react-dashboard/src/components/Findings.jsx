@@ -8,6 +8,7 @@ import {
   ReliabilityChart, 
   HeatmapChart 
 } from './Charts';
+import CrossModelAnalysis from './CrossModelAnalysis';
 
 const MITIGATION_LABELS = {
   "none": "Baseline (None)",
@@ -42,9 +43,7 @@ const Findings = () => {
   const compSummary = getComparisonSummary(selectedSlug);
   const availableMits = MITIGATIONS.filter(m => metrics[m]);
   
-  if (availableMits.length === 0) {
-    return <div className="warn-panel mt-1">No result files found for this model.</div>;
-  }
+
 
   const gapM1 = metrics.none && metrics.m1 ? 
     (metrics.none.attack_success_rate_pct - metrics.m1.attack_success_rate_pct).toFixed(1) : "N/A";
@@ -57,13 +56,15 @@ const Findings = () => {
           {models.map(m => (
             <option key={m} value={m}>{m === 'openai-gpt-oss-120b' ? 'OpenAI GPT-OSS 120B' : m}</option>
           ))}
-          <option value="__all__">All Models (Coming Soon)</option>
+          <option value="__all__">All Models (Cross-Model Analysis)</option>
         </select>
         <button className="btn-primary" onClick={() => window.dispatchEvent(new Event('resize'))}>🔬 Refresh Layout</button>
       </div>
 
       {selectedSlug === '__all__' ? (
-        <div className="warn-panel mt-1"><strong>⚠️ Cross-Model Analysis Coming Soon</strong><br/>Aggregated "All Models" statistics are not yet available.</div>
+        <CrossModelAnalysis />
+      ) : availableMits.length === 0 ? (
+        <div className="warn-panel mt-1">No result files found for this model.</div>
       ) : (
         <>
           <div className="glass-card mb-2" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.5rem' }}>

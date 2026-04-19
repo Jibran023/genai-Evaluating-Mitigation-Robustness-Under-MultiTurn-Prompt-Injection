@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
 import pandas as pd
+from matplotlib.patches import Patch
 
 # ── Colour palette ────────────────────────────────────────────────────────────
 BLUE   = "#2563EB"
@@ -72,11 +73,17 @@ def plot_asr_by_topic(results: list[dict], plots_dir: str):
     fig, ax = plt.subplots(figsize=(8, max(4, len(topic_df) * 0.55)))
     colors = [RED if v >= 50 else BLUE for v in topic_df["asr"]]
     bars = ax.barh(topic_df["topic"], topic_df["asr"], color=colors)
-    ax.axvline(50, color=GRAY, linestyle="--", linewidth=1, label="50 % threshold")
+    line_50 = ax.axvline(50, color=GRAY, linestyle="--", linewidth=1, label="50 % threshold")
     ax.set_xlabel("Attack Success Rate (%)")
-    ax.set_title("Attack Success Rate by Topic\n(red ≥ 50 %)", fontsize=11)
+    ax.set_title("Attack Success Rate by Topic", fontsize=11)
     ax.set_xlim(0, 110)
-    ax.legend(fontsize=8)
+    
+    legend_elements = [
+        Patch(facecolor=RED, label='≥ 50% (Vulnerable)'),
+        Patch(facecolor=BLUE, label='< 50% (More Secure)'),
+        line_50
+    ]
+    ax.legend(handles=legend_elements, fontsize=8, loc='lower right', title="Key")
     for bar, val in zip(bars, topic_df["asr"]):
         ax.text(val + 1, bar.get_y() + bar.get_height() / 2,
                 f"{val}%", va="center", fontsize=8)
@@ -142,6 +149,14 @@ def plot_context_length_drift(
         fontsize=10,
     )
     ax.set_ylim(0, 110)
+
+    legend_elements = [
+        Patch(facecolor=GREEN, label='< 10% (Low ASR)'),
+        Patch(facecolor=AMBER, label='10-30% (Medium ASR)'),
+        Patch(facecolor=RED, label='> 30% (High ASR)')
+    ]
+    ax.legend(handles=legend_elements, fontsize=8, loc='upper left', title="Severity Key")
+
     for bar, val in zip(bars, df["asr_pct"]):
         ax.text(bar.get_x() + bar.get_width() / 2, val + 1.5,
                 f"{val}%", ha="center", fontsize=9)
@@ -196,7 +211,7 @@ def plot_tvc(tvc_metrics: dict, plots_dir: str):
     fig, ax = plt.subplots(figsize=(9, max(4, len(topics) * 0.55)))
     colors = [RED if v >= 50 else (AMBER if v >= 25 else GREEN) for v in asrs]
     bars   = ax.barh(list(topics), list(asrs), color=colors)
-    ax.axvline(50, color=GRAY, linestyle="--", linewidth=1, alpha=0.7,
+    line_50 = ax.axvline(50, color=GRAY, linestyle="--", linewidth=1, alpha=0.7,
                label="50% ASR threshold")
     ax.set_xlabel("Attack Success Rate (%)")
     tvc_label = f"{tvc_score:.3f}" if tvc_score is not None else "N/A"
@@ -206,7 +221,14 @@ def plot_tvc(tvc_metrics: dict, plots_dir: str):
         fontsize=10,
     )
     ax.set_xlim(0, 115)
-    ax.legend(fontsize=8)
+    
+    legend_elements = [
+        Patch(facecolor=GREEN, label='< 25% (Strong)'),
+        Patch(facecolor=AMBER, label='25-50% (Moderate)'),
+        Patch(facecolor=RED, label='≥ 50% (Vulnerable)'),
+        line_50
+    ]
+    ax.legend(handles=legend_elements, fontsize=8, loc='lower right', title="Key")
     for bar, val, n in zip(bars, asrs, ns):
         ax.text(val + 1, bar.get_y() + bar.get_height() / 2,
                 f"{val}%  (n={n})", va="center", fontsize=8)
@@ -296,6 +318,14 @@ def plot_err_by_topic(err_metrics: dict, plots_dir: str):
     ax.set_title("Escalation Resistance Rate by Topic\n(% of ATTACK_ESCALATES turns blocked)\n"
                  "higher = better", fontsize=10)
     ax.set_xlim(0, 115)
+    
+    legend_elements = [
+        Patch(facecolor=GREEN, label='≥ 70% (Strong Resistance)'),
+        Patch(facecolor=AMBER, label='40-70% (Moderate)'),
+        Patch(facecolor=RED, label='< 40% (Weak Resistance)')
+    ]
+    ax.legend(handles=legend_elements, fontsize=8, loc='lower right', title="ERR Quality")
+
     for bar, val in zip(bars, vals):
         ax.text(val + 1, bar.get_y() + bar.get_height() / 2,
                 f"{val}%", va="center", fontsize=8)
@@ -341,7 +371,14 @@ def plot_rcs(rcs_metrics: dict, plots_dir: str):
         "higher = more sustained blocking after first refusal",
         fontsize=10,
     )
-    ax.legend(fontsize=8)
+    
+    handles, labels = ax.get_legend_handles_labels()
+    handles.extend([
+        Patch(facecolor=GREEN, label='≥ 0.8 (Consistent)'),
+        Patch(facecolor=AMBER, label='0.5-0.8 (Moderate)'),
+        Patch(facecolor=RED, label='< 0.5 (Inconsistent)')
+    ])
+    ax.legend(handles=handles, fontsize=8, loc='lower left', title="Key")
     for bar, val in zip(bars, vals):
         ax.text(bar.get_x() + bar.get_width() / 2, val + 0.02,
                 f"{val:.3f}", ha="center", fontsize=9)

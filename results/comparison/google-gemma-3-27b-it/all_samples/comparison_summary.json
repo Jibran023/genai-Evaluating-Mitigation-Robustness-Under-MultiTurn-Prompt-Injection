@@ -33,6 +33,38 @@
       "attacks_caught": 43,
       "attacks_missed": 67,
       "false_positives": 24
+    },
+    "m2": {
+      "attack_success_rate_pct": 22.7,
+      "mean_detection_latency_turns": 0.36,
+      "mean_gate_latency_turns": 0.38,
+      "mean_ai_latency_turns": 2.3,
+      "over_refusal_rate_pct": 94.0,
+      "context_length_drift_pct": 0.8,
+      "tvc_score": 0.0,
+      "err_overall": 60.1,
+      "err_early": 58.9,
+      "err_late": 61.6,
+      "rcs_score": 0.669,
+      "attacks_caught": 85,
+      "attacks_missed": 25,
+      "false_positives": 47
+    },
+    "m3": {
+      "attack_success_rate_pct": 80.0,
+      "mean_detection_latency_turns": 1.18,
+      "mean_gate_latency_turns": 1.38,
+      "mean_ai_latency_turns": 0.89,
+      "over_refusal_rate_pct": 72.0,
+      "context_length_drift_pct": -26.6,
+      "tvc_score": 0.811,
+      "err_overall": 4.8,
+      "err_early": 4.1,
+      "err_late": 5.6,
+      "rcs_score": 0.15,
+      "attacks_caught": 22,
+      "attacks_missed": 88,
+      "false_positives": 36
     }
   }
 }
