@@ -65,7 +65,7 @@ flowchart TD
     N1 --> N2[Raw LLM Response]
 
     %% M1 Route
-    Router -- "m1" --> M1_1[Prepend Safety System Prompt]
+    Router -- "m1" --> M1_1[Prepend Safety<br/>System Prompt]
     M1_1 --> M1_2(LLM API)
     M1_2 --> M1_3[LLM Response]
 
