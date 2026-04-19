@@ -54,12 +54,46 @@ graph TD
 | `m2` | **I/O Gate** | Keyword filtering of inputs and outputs (Architectural defense). |
 | `m3` | **State Monitor** | Heuristic tracking of adversarial escalation across turns. |
 
+#### Mitigation Workflows
+
+```mermaid
+flowchart TD
+    In[User Input] --> Router{Active Mitigation}
+
+    %% None Route
+    Router -- "none" --> N1(LLM API)
+    N1 --> N2[Raw LLM Response]
+
+    %% M1 Route
+    Router -- "m1" --> M1_1[Prepend Safety<br/>System Prompt]
+    M1_1 --> M1_2(LLM API)
+    M1_2 --> M1_3[LLM Response]
+
+    %% M2 Route
+    Router -- "m2" --> M2_1{Input Scan:<br/>Keywords Found?}
+    M2_1 -- "Yes" --> Refusal[Canned Refusal / Block]
+    M2_1 -- "No" --> M2_2(LLM API)
+    M2_2 --> M2_3{Output Scan:<br/>Keywords Found?}
+    M2_3 -- "Yes" --> Refusal
+    M2_3 -- "No" --> M2_4[LLM Response]
+
+    %% M3 Route
+    Router -- "m3" --> M3_1[Sentence Transformer:<br/>Embed User Text]
+    M3_1 --> M3_2[Max Cosine Sim vs.<br/>Attack Prototypes]
+    M3_2 --> M3_3[Update State Monitor<br/>Exponential Decay]
+    M3_3 --> M3_4{Score >= Threshold?}
+    M3_4 -- "Yes" --> Refusal
+    M3_4 -- "No" --> M3_5(LLM API)
+    M3_5 --> M3_6[LLM Response]
+
+    classDef default fill:#000000,stroke:#555,stroke-width:2px,color:#ffffff;
+    classDef refusal fill:#ffffff,stroke:#333,stroke-width:2px,color:#000000;
+    class Refusal refusal;
+```
+
 ### 📈 Core Metrics
 *   **ASR (Attack Success Rate)**: % of attacks that successfully bypassed all defenses.
-*   **Gate Latency**: Turns between attack start and a **code-level block** (M2/M3 gates).
-*   **AI Latency**: Turns between attack start and an **LLM-level refusal** (M1/M3 response).
 *   **CLD (Context-Length Drift)**: Measures if defenses weaken as conversations grow longer. Close to zero (or negative) is better. Measures if the model becomes more or less vulnerable as the conversation goes on. A high positive CLD means the model "forgets" its safety training in long conversations.
-*   **ADT (Transferability)**: Measures how well a mitigation generalizes to unseen attack topics.
 *   **ERR (Escalation Resistance Rate)**: Measures how well a mitigation generalizes to unseen attack topics.
 
 ---
