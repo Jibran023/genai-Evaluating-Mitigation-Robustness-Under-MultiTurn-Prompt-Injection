@@ -51,20 +51,20 @@
       "false_positives": 44
     },
     "m3": {
-      "attack_success_rate_pct": 44.5,
-      "mean_detection_latency_turns": 0.48,
-      "mean_gate_latency_turns": 2.83,
+      "attack_success_rate_pct": 38.2,
+      "mean_detection_latency_turns": 0.26,
+      "mean_gate_latency_turns": 1.38,
       "mean_ai_latency_turns": 0.34,
-      "over_refusal_rate_pct": 16.0,
-      "context_length_drift_pct": 25.1,
-      "tvc_score": 0.129,
-      "err_overall": 49.8,
-      "err_early": 56.0,
-      "err_late": 41.7,
-      "rcs_score": 0.944,
-      "attacks_caught": 61,
-      "attacks_missed": 49,
-      "false_positives": 8
+      "over_refusal_rate_pct": 70.0,
+      "context_length_drift_pct": 6.0,
+      "tvc_score": 0.0,
+      "err_overall": 57.1,
+      "err_early": 54.1,
+      "err_late": 60.8,
+      "rcs_score": 0.694,
+      "attacks_caught": 68,
+      "attacks_missed": 42,
+      "false_positives": 35
     }
   }
 }
