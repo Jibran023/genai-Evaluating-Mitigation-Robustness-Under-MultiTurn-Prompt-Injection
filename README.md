@@ -9,6 +9,43 @@
 
 This project evaluates the robustness of LLM safety mitigations against **multi-turn prompt injection attacks**. These are conversational attacks that gradually escalate toward harmful intent, attempting to bypass safety filters by building context across multiple turns.
 
+### 🏗️ System Architecture
+
+```mermaid
+graph TD
+    A[Dataset<br/>Multi-Turn Conversations] --> B(Harness Engine)
+    
+    subgraph Mitigations
+        M0[None - Baseline]
+        M1[M1 - Prompt Hardening]
+        M2[M2 - I/O Gate]
+        M3[M3 - State Monitor]
+    end
+    
+    B --> M0
+    B --> M1
+    B --> M2
+    B --> M3
+    
+    M0 --> C{LLM API<br/>NVIDIA NIM / Groq}
+    M1 --> C
+    M2 --> C
+    M3 --> C
+    
+    C --> D[Response Generation]
+    D -.->|Feedback Loop| B
+    
+    B --> E[Evaluation Stage]
+    E --> F{Phrase-Based Detection}
+    F -- "Inconclusive" --> G[LLM-as-Judge]
+    F -- "Clear Match" --> H[Evaluation Output]
+    G --> H
+    
+    classDef default fill:#000000,stroke:#555,stroke-width:2px,color:#ffffff;
+    classDef mitigation fill:#ffffff,stroke:#333,stroke-width:2px,color:#000000;
+    class M0,M1,M2,M3 mitigation;
+```
+
 ### 🛡️ Defensive Strategies
 | ID | Strategy | Mechanism |
 |----|----------|-------------|
