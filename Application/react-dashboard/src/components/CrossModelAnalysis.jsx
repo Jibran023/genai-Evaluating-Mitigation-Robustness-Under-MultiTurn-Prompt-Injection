@@ -24,8 +24,8 @@ const baseLayout = {
   font: { family: "Inter, sans-serif", color: "#1e293b", size: 12 },
   paper_bgcolor: "rgba(0,0,0,0)",
   plot_bgcolor: "rgba(0,0,0,0)",
-  margin: { t: 90, b: 80, l: 80, r: 20 },
-  legend: { orientation: 'h', y: -0.3, x: 0.5, xanchor: 'center' },
+  margin: { t: 90, b: 120, l: 80, r: 20 },
+  legend: { orientation: 'h', y: -0.5, x: 0.5, xanchor: 'center' },
   hoverlabel: { namelength: -1 }
 };
 
@@ -50,13 +50,12 @@ const CrossModelAnalysis = () => {
     return () => { active = false; };
   }, [activeMit]);
 
-  // Format model names for display
   const formatModelName = (slug) => {
-    if (slug === 'openai-gpt-oss-120b') return `<img src="${openaiLogo}" height="14" width="14" /> OpenAI GPT-OSS 120B`;
-    if (slug.includes('gemma-3')) return `<img src="${googleLogo}" height="14" width="14" /> Google Gemma 3 27B`;
-    if (slug.includes('mistral-small')) return `<img src="${mistralLogo}" height="14" width="14" /> Mistral Small`;
-    if (slug.includes('qwen3')) return `<img src="${qwenLogo}" height="14" width="14" /> Alibaba Qwen3 80B`;
-    if (slug.includes('kimi')) return `<img src="${moonshotLogo}" height="14" width="14" /> Moonshot Kimi K2`;
+    if (slug === 'openai-gpt-oss-120b') return 'OpenAI GPT-OSS 120B';
+    if (slug.includes('gemma-3')) return 'Google Gemma 3 27B';
+    if (slug.includes('mistral-small')) return 'Mistral Small';
+    if (slug.includes('qwen3')) return 'Alibaba Qwen3 80B';
+    if (slug.includes('kimi')) return 'Moonshot Kimi K2';
     return slug;
   };
 
@@ -142,13 +141,32 @@ const CrossModelAnalysis = () => {
           Evaluate how effective a specific mitigation strategy is across different model architectures and sizes. Select a mitigation strategy below to update the visualizations.
         </p>
 
-        <div className="select-wrapper" style={{ margin: 0 }}>
+        <div className="select-wrapper" style={{ margin: 0, marginBottom: '1.5rem' }}>
           <div style={{ fontWeight: 600 }}>Active Mitigation Strategy:</div>
           <select value={activeMit} onChange={e => setActiveMit(e.target.value)}>
             {MITIGATIONS.map(m => (
               <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </select>
+        </div>
+
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'center', backgroundColor: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+          <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', marginRight: '8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Target Models:</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+            <img src={googleLogo} alt="Google" style={{ width: '18px', height: '18px', objectFit: 'contain' }} /> Gemma 3 27B
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+            <img src={mistralLogo} alt="Mistral" style={{ width: '18px', height: '18px', objectFit: 'contain' }} /> Mistral Small
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+            <img src={qwenLogo} alt="Alibaba" style={{ width: '18px', height: '18px', objectFit: 'contain' }} /> Qwen3 80B
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+            <img src={openaiLogo} alt="OpenAI" style={{ width: '18px', height: '18px', objectFit: 'contain' }} /> GPT-OSS 120B
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', fontWeight: 500, color: '#334155' }}>
+            <img src={moonshotLogo} alt="Moonshot" style={{ width: '18px', height: '18px', objectFit: 'contain' }} /> Kimi K2
+          </div>
         </div>
       </div>
 
@@ -171,7 +189,7 @@ const CrossModelAnalysis = () => {
                   showlegend: true
                 }} 
                 useResizeHandler 
-                style={{ width: '100%', height: '340px' }} 
+                style={{ width: '100%', height: '390px' }} 
                 config={{ responsive: true, displayModeBar: false }} 
               />
             </div>
@@ -187,7 +205,7 @@ const CrossModelAnalysis = () => {
                   showlegend: true
                 }} 
                 useResizeHandler 
-                style={{ width: '100%', height: '340px' }} 
+                style={{ width: '100%', height: '390px' }} 
                 config={{ responsive: true, displayModeBar: false }} 
               />
             </div>
@@ -205,7 +223,7 @@ const CrossModelAnalysis = () => {
                   showlegend: true
                 }} 
                 useResizeHandler 
-                style={{ width: '100%', height: '340px' }} 
+                style={{ width: '100%', height: '390px' }} 
                 config={{ responsive: true, displayModeBar: false }} 
               />
             </div>
@@ -221,7 +239,7 @@ const CrossModelAnalysis = () => {
                   showlegend: true
                 }} 
                 useResizeHandler 
-                style={{ width: '100%', height: '340px' }} 
+                style={{ width: '100%', height: '390px' }} 
                 config={{ responsive: true, displayModeBar: false }} 
               />
             </div>

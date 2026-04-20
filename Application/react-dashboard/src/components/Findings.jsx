@@ -8,7 +8,7 @@ import {
   ReliabilityChart, 
   HeatmapChart 
 } from './Charts';
-import CrossModelAnalysis from './CrossModelAnalysis';
+import Results from './Results';
 
 const MITIGATION_LABELS = {
   "none": "Baseline (None)",
@@ -62,7 +62,7 @@ const Findings = () => {
       </div>
 
       {selectedSlug === '__all__' ? (
-        <CrossModelAnalysis />
+        <Results />
       ) : availableMits.length === 0 ? (
         <div className="warn-panel mt-1">No result files found for this model.</div>
       ) : (
