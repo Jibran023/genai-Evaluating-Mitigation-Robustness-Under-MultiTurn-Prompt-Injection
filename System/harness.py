@@ -30,7 +30,7 @@ from mitigations import apply_mitigation, get_system_prompt, StateMonitor
 from metrics     import (ai_refused, bucket, compute_summary, compute_cld,
                          compute_tvc, compute_err, compute_rcs,
                          set_judge_client, get_judge_stats,
-                         set_backup_judge_client)
+                         set_backup_judge_client, get_cached_translation)
 from plots       import save_all
 from io_utils    import (
     load_dataset, save_checkpoint, load_checkpoint, save_metrics,
@@ -234,8 +234,18 @@ try:
             # Only record an AI-led refusal when the LLM itself responded.
             # If the gate already blocked (blocked=True) the response is the
             # canned refusal string — attributing that to the model is wrong.
-            if not blocked and ai_refused(response) and _should_update(refused_at, turn["turn"]):
+            # NOTE: reuse refused_here (already computed above) instead of
+            # calling ai_refused(response) a second time — avoids a duplicate
+            # translation + judge API call for non-English models.
+            ai_refused_flag = refused_here and not blocked
+            if ai_refused_flag and _should_update(refused_at, turn["turn"]):
                 refused_at = turn["turn"]
+
+            # Read back the English translation (if any) from the cache so it
+            # can be stored alongside the original response in turn_logs.
+            # get_cached_translation() returns None when the response was already
+            # in English and no translation was needed.
+            response_en = get_cached_translation(response)
 
             turn_logs.append({
                 "conv_id"         : cid,
@@ -246,6 +256,7 @@ try:
                 "label"           : label,
                 "user_text"       : user_text,
                 "ai_response"     : response,
+                "ai_response_en"  : response_en,
                 "mitigation_flag" : int(refused_here),
                 "blocked_by_gate" : int(blocked),
                 "over_refusal"    : int(not is_attack and refused_here),
@@ -414,10 +425,13 @@ save_all(results, summary["mean_detection_latency_turns"],
 
 # ── LLM Judge usage summary ───────────────────────────────────────────────────
 js = get_judge_stats()
-if js["judge_calls"] > 0:
+if js["judge_calls"] > 0 or js["translation_calls"] > 0:
     print(f"\n{'='*60}")
     print(f"  LLM-AS-JUDGE SUMMARY ({js['judge_model']})")
     print(f"{'='*60}")
+    if js["translation_calls"] > 0:
+        print(f"  Translations (non-EN): {js['translation_calls']}")
+        print(f"  Translation cache hits: {js['translation_cache_hits']}")
     print(f"  Total judge calls    : {js['judge_calls']}")
     print(f"  Judged as REFUSED    : {js['judge_refused']}")
     print(f"  Judged as COMPLIED   : {js['judge_complied']}")
